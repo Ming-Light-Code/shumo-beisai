@@ -1,1 +1,11 @@
-.agents/
+﻿__pycache__/
+*.pyc
+*.zip
+.vscode/
+.DS_Store
+images/
+*.aux
+*.log
+*.out
+*.toc
+*.synctex*
