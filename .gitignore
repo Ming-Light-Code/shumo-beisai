@@ -9,3 +9,27 @@ images/
 *.out
 *.toc
 *.synctex*
+
+# 不上传：论文、PDF、文档与 LaTeX 编译依赖
+*.pdf
+*.doc
+*.cls
+*.sty
+*.bst
+*.ttf
+*.ttc
+2026校赛/封面+规范+AI使用要求/
+
+# 不上传：大体积媒体与临时文件
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.mkv
+*.tmp
+*.~*
+_不上传/
+untitled/
+Users/
+__MACOSX/
+FlyBit
