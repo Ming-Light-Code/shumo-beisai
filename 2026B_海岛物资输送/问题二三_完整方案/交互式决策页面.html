@@ -1,0 +1,151 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>海岛物资输送 — 实时决策框架 v3</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:#0f1923;color:#e0e0e0;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a2a3a,#0d1b2a);padding:14px 24px;border-bottom:2px solid #2a4a6a}
+.header h1{font-size:1.1em;color:#64b5f6}
+.container{display:flex;gap:12px;padding:12px;max-width:1400px;margin:0 auto;height:calc(100vh-80px)}
+.left{flex:0 0 440px;display:flex;flex-direction:column;gap:10px}
+.right{flex:1;display:flex;flex-direction:column;gap:10px}
+.card{background:#1a2a3a;border:1px solid #2a4a6a;border-radius:6px;padding:10px}
+.card h3{font-size:.8em;color:#64b5f6;margin-bottom:6px}
+.grid-map{display:grid;grid-template-columns:repeat(10,32px);grid-template-rows:repeat(10,32px);gap:1px;background:#0d1b2a;padding:6px;border-radius:4px;width:fit-content;margin:0 auto}
+.cell{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:bold;border-radius:2px}
+.cn{background:#1a2a3a;color:#546e7a}.cnode{background:#1b3a2a;color:#4caf50}
+.cship{background:#ff9800;color:#000;box-shadow:0 0 8px rgba(255,152,0,.7)}
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ri{background:#0d1b2a;padding:8px;border-radius:4px;text-align:center}
+.ri .l{font-size:.65em;color:#78909c}.ri .v{font-size:1.1em;font-weight:bold;color:#64b5f6}
+.btn-row{display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:7px 14px;border:none;border-radius:4px;cursor:pointer;font-size:.75em;font-weight:bold}
+.bn{background:#4caf50;color:#fff}.bs{background:#f44336;color:#fff}
+.ba{background:#ff9800;color:#000}.br{background:#546e7a;color:#fff}
+.log{flex:1;overflow-y:auto;background:#0d1b2a;border-radius:4px;padding:6px;font-family:Consolas,monospace;font-size:.7em;line-height:1.5}
+.le{padding:2px 4px;border-bottom:1px solid #1a2a3a}
+.ld{color:#ff9800}.ln{color:#4caf50}.ls{color:#f44336}.ly{color:#ffeb3b}
+.info{display:flex;justify-content:space-between;font-size:.7em;color:#78909c;margin-top:4px}
+.info b{color:#64b5f6}
+</style>
+</head>
+<body>
+<div class="header"><h1>🏝️ 海岛物资输送 — 实时决策框架</h1></div>
+<div class="container">
+<div class="left">
+<div class="card"><h3>🗺️ 海域地图</h3><div id="map"></div></div>
+<div class="card"><h3>📊 资源状态</h3>
+<div class="res-grid">
+<div class="ri"><div class="l">⛽ O</div><div class="v" id="vO">35</div></div>
+<div class="ri"><div class="l">💧 H</div><div class="v" id="vH">45</div></div>
+<div class="ri"><div class="l">🍞 F</div><div class="v" id="vF">30</div></div>
+<div class="ri"><div class="l">💰 M</div><div class="v" id="vM">240</div></div>
+<div class="ri"><div class="l">📦 载重</div><div class="v" id="vL">110</div></div>
+<div class="ri"><div class="l">🎯 Z</div><div class="v" id="vZ">100</div></div>
+</div>
+<div class="info"><b>📍 <span id="iP">(1,5)</span></b><b>📅 <span id="iD">1</span>/30</b><b>🌤️ <span id="iW">—</span></b><b>🎯目标Z=<span id="iTZ">328</span></b></div>
+</div>
+<div class="card"><h3>🎮 决策控制</h3>
+<div class="btn-row">
+<button class="btn bn" onclick="step('normal')">☀️ 今日正常</button>
+<button class="btn bs" onclick="step('storm')">⛈️ 今日雷暴</button>
+<button class="btn ba" onclick="autoRun()">⏩ 自动执行</button>
+<button class="btn br" onclick="resetAll()">🔄 重置</button>
+</div>
+</div>
+</div>
+<div class="right"><div class="card" style="flex:1;display:flex;flex-direction:column"><h3>📋 航行日志</h3><div class="log" id="log"></div></div></div>
+</div>
+<script>
+// ===== 参数 (0-indexed) =====
+const ALL_XY=[[1,5],[10,5],[2,7],[5,3],[8,8],[3,4],[7,6]];
+const NAMES=['B','E','W1','W2','W3','S1','S2'];
+const LOAD=120; const WY=[20,15,28]; const WM=[4,5,3];
+const SK_PID=[0,2,6,4,6,1]; const SK_DIST=[3,6,3,3,4];
+const SK_WORK_ORIG=[3,0,6,0,0];
+var S,SK_WORK;
+
+function resetAll(){
+ SK_WORK=[...SK_WORK_ORIG];
+ S={x:1,y:5,O:35,H:45,F:30,M:240,Z:100,seg:1,step:0,consec:0,sd:false,fin:false,day:1};
+ document.getElementById('log').innerHTML='<div class="le">🚢 就绪</div>';
+ updateUI();drawMap();
+}
+function nodeAt(x,y){for(var i=0;i<7;i++)if(ALL_XY[i][0]===x&&ALL_XY[i][1]===y)return i;return -1}
+
+function step(wx){
+ if(S.fin){addLog('⚠️ 已完成','warn');return}
+ if(S.day>30){addLog('⚠️ 超30天','warn');S.fin=true;return}
+ var cO=0,cH=0,cF=0,zG=0,bO=0,bH=0,bF=0,dx=0,dy=0,act='',noDay=false;
+ var nid=nodeAt(S.x,S.y);
+
+ if(nid===1){S.fin=true;act='🏁 Arrive@E!';noDay=true;}
+ else if(S.seg<=SK_DIST.length&&nid===SK_PID[S.seg]){
+  if((nid===5||nid===6)&&!S.sd){
+   var ro=0,rh=0,rf=0;
+   for(var k=S.seg+1;k<=SK_DIST.length;k++){
+    ro+=SK_DIST[k-1]*2;rh+=SK_DIST[k-1]*3;rf+=SK_DIST[k-1]*2;
+    if(SK_WORK[k-1]>0){var wd=SK_WORK[k-1],wp=SK_PID[k]-2;var wc=(wp>=0&&wp<3)?WM[wp]:1;
+     ro+=wd*5;rh+=wd*4;rf+=wd*3;if(wd>wc){var ni=Math.ceil(wd/wc)-1;ro+=ni;rh+=ni;rf+=ni}}
+    }
+    var npid=SK_PID[k];if(npid===5||npid===6)break;
+   }
+   var no=Math.max(0,Math.ceil(ro-S.O)),nh=Math.max(0,Math.ceil(rh-S.H)),nf=Math.max(0,Math.ceil(rf-S.F));
+   var sp=LOAD-(S.O+S.H+S.F);
+   if(no+nh+nf>sp){
+    if(wx==='normal'){cO=1;cH=1;cF=1}else{cO=3;cH=3;cF=2}
+    act='🅿️ Idle@'+NAMES[nid]+'(pre-buy)';
+   }else{bO=no;bH=nh;bF=nf;
+    var cost=bO*2+bH*1+bF*2;
+    if(cost<=S.M){act='🛒 Buy@'+NAMES[nid]+' O:'+bO+' H:'+bH+' F:'+bF;S.sd=true;S.seg++;S.step=0;S.consec=0;noDay=true}
+    else{S.fin=true;act='❌ NoMoney!'}}
+  }else if(nid>=2&&nid<=4&&SK_WORK[S.seg-1]>0){
+   var wt=nid-2;
+   if(wx==='normal'){
+    if(S.consec<WM[wt]){cO=5;cH=4;cF=3;zG=WY[wt];S.consec++;SK_WORK[S.seg-1]--;act='🔧 Work@'+NAMES[nid]+'('+S.consec+'/'+WM[wt]+')'}
+    else{cO=1;cH=1;cF=1;S.consec=0;act='🅿️ Idle@'+NAMES[nid]+'(reset)'}
+   }else{cO=3;cH=3;cF=2;act='⛈️ Idle@'+NAMES[nid]+'(storm)'}
+   if(SK_WORK[S.seg-1]<=0){S.seg++;S.step=0;S.consec=0;S.sd=false}
+  }
+ }else{
+  if(S.seg<=SK_DIST.length){
+   var tp=SK_PID[S.seg],tx=ALL_XY[tp][0],ty=ALL_XY[tp][1];
+   if(S.x<tx)dx=1;else if(S.x>tx)dx=-1;else if(S.y<ty)dy=1;else if(S.y>ty)dy=-1;
+   if(wx==='normal'){cO=2;cH=3;cF=2}else{cO=8;cH=4;cF=3}
+   S.step++;S.consec=0;act='🚢→('+(S.x+dx)+','+(S.y+dy)+')';
+  }
+ }
+ S.x+=dx;S.y+=dy;S.O=S.O-cO+bO;S.H=S.H-cH+bH;S.F=S.F-cF+bF;
+ if(bO+bH+bF>0)S.M-=(bO*2+bH*1+bF*2);S.Z+=zG;
+ if(S.O<0||S.H<0||S.F<0||S.M<0||S.O+S.H+S.F>LOAD){addLog('❌ 约束违反!','fail');S.fin=true;updateUI();drawMap();return}
+ var tag=wx==='storm'?'⛈️':'☀️';addLog(tag+' D'+S.day+' '+act+' O:'+S.O+' H:'+S.H+' F:'+S.F+' M:'+S.M+' Z:'+S.Z);
+ if(!noDay)S.day++;
+ updateUI();drawMap();
+ if(S.fin){addLog('✅ 完成! Z='+S.Z+' M='+S.M,'ld')}
+}
+
+function autoRun(){var wx='normal';for(var i=0;i<40;i++){if(S.fin)break;step(wx)}}
+
+function addLog(msg,cls){var l=document.getElementById('log');l.innerHTML+='<div class="le'+(cls?' '+cls:'')+'">'+msg+'</div>';l.scrollTop=l.scrollHeight}
+function updateUI(){
+ document.getElementById('vO').textContent=S.O;document.getElementById('vH').textContent=S.H;
+ document.getElementById('vF').textContent=S.F;document.getElementById('vM').textContent=S.M;
+ document.getElementById('vZ').textContent=S.Z;document.getElementById('vL').textContent=S.O+S.H+S.F;
+ document.getElementById('iP').textContent='('+S.x+','+S.y+')';document.getElementById('iD').textContent=S.day;
+}
+function drawMap(){
+ var h='<div class="grid-map">';
+ for(var y=10;y>=1;y--){for(var x=1;x<=10;x++){
+  var cls='cn',txt='';var n=nodeAt(x,y);
+  if(x===S.x&&y===S.y){cls='cship';txt='🚢'}
+  else if(n>=0){cls='cnode';txt=NAMES[n]}
+  h+='<div class="'+cls+'">'+txt+'</div>';
+ }}
+ h+='</div>';document.getElementById('map').innerHTML=h;
+}
+resetAll();drawMap();updateUI();
+</script>
+</body>
+</html>

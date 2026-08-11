@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>2026B 海岛物资输送 - 任务一&二 信息整合</title>
+<style>
+  :root { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background: #f4f5f7; color: #1a1a2e; }
+  body { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #3a6ea5; color: #3a6ea5; }
+  h3 { font-size: 1rem; margin: 18px 0 6px; }
+  .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 24px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  th { background: #3a6ea5; color: #fff; font-weight: 600; padding: 10px 12px; text-align: left; font-size: 0.9rem; white-space: nowrap; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e8e8e8; font-size: 0.9rem; }
+  tr:last-child td { border-bottom: none; }
+  .num { text-align: right; }
+  .center { text-align: center; }
+  .tag { display: inline-block; background: #e8f0fe; color: #3a6ea5; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+  .tag.red { background: #fce8e6; color: #c5221f; }
+  .note { background: #fffbe6; border-left: 3px solid #f9ab00; padding: 10px 14px; margin-bottom: 16px; font-size: 0.9rem; border-radius: 0 4px 4px 0; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+  .highlight { color: #c5221f; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>2026B 海岛物资输送问题</h1>
+<p class="subtitle">第十九届东南大学大学生数学建模竞赛 — 任务一 &amp; 任务二 信息整合</p>
+
+<h2>一、地图与点位信息（任务一 &amp; 任务二共用）</h2>
+<p>海域大小：<strong>10×10</strong> 整数网格，坐标 (x, y)，x, y ∈ {1, 2, …, 10}</p>
+
+<table>
+<tr><th>类型</th><th>编号</th><th>坐标</th><th>功能说明</th></tr>
+<tr><td><span class="tag">起始岛</span></td><td>B</td><td class="center">(1, 5)</td><td>船舶初始位置，按给定条件完成初始装载</td></tr>
+<tr><td><span class="tag red">终点交付岛</span></td><td>E</td><td class="center">(10, 5)</td><td>唯一交付位置，抵达并完成当日结算后任务终止</td></tr>
+<tr><td>海上补给平台</td><td>S1</td><td class="center">(3, 4)</td><td>使用资金采购燃油、淡水、食物（不可透支、载重约束）</td></tr>
+<tr><td>海上补给平台</td><td>S2</td><td class="center">(7, 6)</td><td>同上</td></tr>
+<tr><td>海上作业点位</td><td>W1</td><td class="center">(2, 7)</td><td>开展作业增加目标物资，见作业收益表</td></tr>
+<tr><td>海上作业点位</td><td>W2</td><td class="center">(5, 3)</td><td>同上</td></tr>
+<tr><td>海上作业点位</td><td>W3</td><td class="center">(8, 8)</td><td>同上</td></tr>
+<tr><td>普通网格</td><td>—</td><td class="center">其余坐标</td><td>仅允许通行或停泊，无补给/作业功能</td></tr>
+</table>
+
+<h2>二、船舶初始资源</h2>
+<table>
+<tr><th>资源类别</th><th>符号</th><th>初始数量</th><th>单位/备注</th></tr>
+<tr><td>燃油</td><td>O</td><td class="num">35</td><td rowspan="3">自持资源，合计载重上限 ≤ 120 单位</td></tr>
+<tr><td>淡水</td><td>H</td><td class="num">45</td></tr>
+<tr><td>食物</td><td>F</td><td class="num">30</td></tr>
+<tr><td>交易资金</td><td>M</td><td class="num">240</td><td>仅用于补给平台采购，无其他来源</td></tr>
+<tr><td>目标物资</td><td>Z</td><td class="num">100</td><td>不参与航行消耗，不计入载重上限</td></tr>
+<tr style="background:#fffbe6"><td><strong>自持资源合计</strong></td><td>O+H+F</td><td class="num"><strong>110</strong></td><td>初始已达上限近 120，仅剩 10 单位余量</td></tr>
+</table>
+
+<h2>三、补给采购价格</h2>
+<table>
+<tr><th>采购项目</th><th>单价 (资金/单位)</th></tr>
+<tr><td>燃油 O</td><td class="num">2</td></tr>
+<tr><td>淡水 H</td><td class="num">1</td></tr>
+<tr><td>食物 F</td><td class="num">2</td></tr>
+</table>
+
+<h2>四、作业点位收益</h2>
+<table>
+<tr><th>作业点</th><th>坐标</th><th>收益 Z (单位/天)</th><th>最多连续作业 (天)</th><th>理论最大收益</th></tr>
+<tr><td>W1</td><td class="center">(2, 7)</td><td class="num">20</td><td class="num">4</td><td class="num">80</td></tr>
+<tr><td>W2</td><td class="center">(5, 3)</td><td class="num">15</td><td class="num">5</td><td class="num">75</td></tr>
+<tr><td>W3</td><td class="center">(8, 8)</td><td class="num">28</td><td class="num">3</td><td class="num">84</td></tr>
+</table>
+
+<div class="note"><strong>分析：</strong>W3 单日收益最高 (28)，理论最大收益 84；W1 理论最大 80；W2 收益最低 (15) 但可连续 5 天。</div>
+
+<h2>五、资源消耗规则</h2>
+
+<div class="two-col">
+<div>
+<h3>任务一：正常天气（无天气影响）</h3>
+<table>
+<tr><th>行为</th><th>O (燃油)</th><th>H (淡水)</th><th>F (食物)</th></tr>
+<tr><td>移动一格</td><td class="num">2</td><td class="num">3</td><td class="num">2</td></tr>
+<tr><td>原地停泊（不作业）</td><td class="num">1</td><td class="num">1</td><td class="num">1</td></tr>
+<tr><td>原地停泊（作业）</td><td class="num">5</td><td class="num">4</td><td class="num">3</td></tr>
+</table>
+</div>
+<div>
+<h3>任务二：雷暴天气（新增）</h3>
+<table>
+<tr><th>行为</th><th>O (燃油)</th><th>H (淡水)</th><th>F (食物)</th></tr>
+<tr><td>移动一格</td><td class="num"><span class="highlight">8</span></td><td class="num"><span class="highlight">4</span></td><td class="num"><span class="highlight">3</span></td></tr>
+<tr><td>原地停泊（不作业）</td><td class="num"><span class="highlight">3</span></td><td class="num"><span class="highlight">3</span></td><td class="num"><span class="highlight">2</span></td></tr>
+<tr><td>原地停泊（作业）</td><td class="num"><span class="highlight">8</span></td><td class="num"><span class="highlight">6</span></td><td class="num"><span class="highlight">6</span></td></tr>
+</table>
+</div>
+</div>
+
+<h2>六、正常 vs 雷暴消耗对比</h2>
+<table>
+<tr><th>行为</th><th colspan="3">正常天气</th><th colspan="3">雷暴天气</th><th rowspan="2">消耗增幅</th></tr>
+<tr><th></th><th>O</th><th>H</th><th>F</th><th>O</th><th>H</th><th>F</th></tr>
+<tr><td>移动一格</td><td class="num">2</td><td class="num">3</td><td class="num">2</td><td class="num highlight">8</td><td class="num highlight">4</td><td class="num highlight">3</td><td class="num">O: +300%, H: +33%, F: +50%</td></tr>
+<tr><td>停泊（不作业）</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num highlight">3</td><td class="num highlight">3</td><td class="num highlight">2</td><td class="num">O: +200%, H: +200%, F: +100%</td></tr>
+<tr><td>停泊（作业）</td><td class="num">5</td><td class="num">4</td><td class="num">3</td><td class="num highlight">8</td><td class="num highlight">6</td><td class="num highlight">6</td><td class="num">O: +60%, H: +50%, F: +100%</td></tr>
+</table>
+
+<h2>七、任务对比总览</h2>
+<table>
+<tr><th>要素</th><th>任务一</th><th>任务二</th></tr>
+<tr><td>天气</td><td>不考虑（始终正常）</td><td>仅当日可观测，有正常/雷暴两类</td></tr>
+<tr><td>未来天气</td><td>—</td><td>不可预知，须实时决策</td></tr>
+<tr><td>地图</td><td class="center">10×10</td><td class="center">10×10（同任务一）</td></tr>
+<tr><td>点位坐标</td><td class="center">完全相同</td><td class="center">完全相同</td></tr>
+<tr><td>初始资源</td><td class="center">完全相同</td><td class="center">完全相同</td></tr>
+<tr><td>时间限制</td><td class="center">30 天</td><td class="center">30 天</td></tr>
+<tr><td>消耗规则</td><td>正常天气消耗</td><td>正常消耗 + 雷暴消耗</td></tr>
+<tr><td>核心约束</td><td colspan="2">资源非负、资金非负、自持资源 ≤ 120</td></tr>
+<tr><td>优化目标（第一优先级）</td><td colspan="2">抵达终点时目标物资 Z 最大</td></tr>
+<tr><td>优化目标（第二优先级）</td><td colspan="2">Z 相同时，剩余资金 M 最多</td></tr>
+<tr><td>结果输出要求</td><td colspan="2">完整航行路径、每日位置、每日决策行为、补给数量、作业安排、每日各类资源余量</td></tr>
+<tr><td>特殊要求</td><td>—</td><td>额外给出 <strong>连续 30 天均为雷暴</strong> 极端情况的最优方案</td></tr>
+</table>
+
+<h2>八、每日决策行为类型汇总</h2>
+<table>
+<tr><th>决策行为</th><th>说明</th><th>消耗规则</th><th>可执行位置</th></tr>
+<tr><td><span class="tag">移动</span></td><td>向上/下/左/右移动 1 格</td><td>见消耗表（区分天气）</td><td>除终点外任意网格</td></tr>
+<tr><td><span class="tag">停泊</span></td><td>原地停留，不作业</td><td>见消耗表（区分天气）</td><td>任意网格</td></tr>
+<tr><td><span class="tag">补给</span></td><td>在补给平台采购资源</td><td>消耗停泊当天资源</td><td>仅 S1、S2</td></tr>
+<tr><td><span class="tag">作业</span></td><td>在作业点获取目标物资</td><td>见消耗表（区分天气）</td><td>仅 W1、W2、W3</td></tr>
+</table>
+
+</body>
+</html>

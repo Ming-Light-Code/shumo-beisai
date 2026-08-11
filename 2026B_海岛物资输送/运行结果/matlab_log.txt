@@ -1,0 +1,81 @@
+[警告: 无法识别的命令行选项: nodisplay。] 
+ 
+要开始，请键入 doc。
+有关产品信息，请访问 www.mathworks.com。
+ 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+导弹 $M_i$
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+烟幕球体 $R_s$
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+单位球面 $\\mathbb{S}^2$
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+烟幕球冠边界 $\\partial\\mathcal{S}$
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+目标投影区域 $\\mathcal{T}$
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+真目标 (圆柱)
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+(b) 单位球面投影 ($\\mathbb{S}^2$)
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+投影 $x$ (rad)
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+投影 $y$ (rad)
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+$\\mathcal{S}$ (烟幕球冠)
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+$\\mathcal{T}$ (目标投影)
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+(c) 方位-俯仰展开对比 ($\\varphi$-$\\psi$)
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+方位角 $\\varphi$ (rad)
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+俯仰角 $\\psi$ (rad)
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+球冠区域 $\\mathcal{S}$
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+目标区域 $\\mathcal{T}$
+] 
+[警告: SceneNode 状态错误。
+字符串标量或字符向量必须具备有效的解释器语法:
+$\\mathbf{遮蔽判别准则:}\\ \\forall\\,\\hat{\\mathbf{v}}_k\\in\\partial\\mathcal{T},\\
+\\arccos(\\hat{\\mathbf{v}}_k\\cdot\\hat{\\mathbf{c}})\\le\\theta_{\\mathrm{s}},\\
+\\theta_{\\mathrm{s}}=\\arcsin(R_{\\mathrm{s}}/\\|\\mathbf{r}_c-\\mathbf{r}_{M_i}\\|)$
+] 
+[警告: 向量化内容可能需要很长时间才能创建，或者可能包含意外结果。将 'ContentType' 设置为 'image' 以提高性能。<a href="matlab:warning('off',
+'MATLAB:print:ContentTypeImageSuggested')">点击此处</a>以不再显示此消息。] 
+图形已保存至:
+  PDF: C:\Users\ming\Desktop\occlusion_algorithm_diagram.pdf
+  PNG: C:\Users\ming\Desktop\occlusion_algorithm_diagram.png
+  FIG: C:\Users\ming\Desktop\occlusion_algorithm_diagram.fig

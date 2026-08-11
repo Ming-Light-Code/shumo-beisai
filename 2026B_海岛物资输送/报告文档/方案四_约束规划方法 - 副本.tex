@@ -1,0 +1,227 @@
+%!TEX program = xelatex
+\documentclass[12pt,a4paper]{ctexart}
+
+\usepackage{geometry}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs,tabularx,multirow}
+\usepackage{float,enumitem,xcolor}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{定义}[section]
+\newtheorem{theorem}{定理}[section]
+\newtheorem{lemma}{引理}[section]
+\newtheorem{proposition}{命题}[section]
+\newtheorem{corollary}{推论}[section]
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\set}[1]{\{#1\}}
+\newcommand{\abs}[1]{|#1|}
+\newcommand{\VEC}[1]{\boldsymbol{#1}}
+\newcommand{\ind}[1]{\mathbf{1}_{[#1]}}
+
+\title{\textbf{方案四：约束规划方法\\（Constraint Programming）}}
+\author{数学建模备赛}
+\date{2026年7月19日}
+
+\begin{document}
+\maketitle
+
+% ==================== 问题分析 ====================
+\section{问题分析}
+
+在 $10\times 10$ 的网格海域中，船舶从起始岛 $B(1,5)$ 出发，须在 $30$ 天内抵达终点交付岛 $E(10,5)$。海域中有 $5$ 个特殊功能点：三个作业点 $W_1,W_2,W_3$（各有不同收益率和连续作业上限）和两个补给站 $S_1,S_2$。初始资源为燃油 $35$、淡水 $45$、食物 $30$、资金 $240$、目标物资 $100$，载重上限 $120$。优化目标为字典序 $\max Z$、次 $\max M$。
+
+\textbf{为什么选择约束规划？} 约束规划（Constraint Programming, CP）是一种面向组合优化问题的编程范式，其核心与 MILP 根本不同——CP 不依赖线性松弛和目标函数的连续凸性，而是通过约束传播（constraint propagation）在离散决策变量的有限值域上进行系统搜索。对于本题，CP 的自然优势在于：
+
+\begin{enumerate}
+  \item \textbf{离散决策的天然表达}。路径序列（选哪个点）、工作天数（0 到若干天）、是否停泊（是/否）——这些决策天然是离散的。CP 直接在有限域 $\{W_1,W_2,W_3,S_1,S_2\}$ 和 $\{0,\dots,WM_j\}$ 上搜索，无需像 MILP 那样通过连续松弛和 big-M 线性化来"模拟"离散性。
+
+  \item \textbf{结构性约束的直接处理}。连续作业上限（"不能连续工作超过 $WM$ 天"）在 CP 中只需一条传播规则：若计数器已达 $WM$，则域中删除"工作"动作。在 MILP 中则需要引入辅助二元变量和 big-M 约束来表示这种析取逻辑（"要么停泊，要么离开"）。
+
+  \item \textbf{前向可行性检查的早期剪枝}。CP 在每个搜索节点可以执行前向资源检查，提前发现不可行分支并回溯。这在资源受限的路径问题中尤为有效。
+\end{enumerate}
+
+\textbf{停泊-再作业策略的 CP 视角}。题目限制的是"连续"作业天数，而非累计。若船舶选择不作业（停泊，消耗 $(1,1,1)$）来"跳过"一天，连续计数器归零，即可在同一作业点开始新一轮作业。在 CP 中这一逻辑体现为：搜索树不是按网格坐标分支，而是按"下一停靠点"分支；停泊不作为独立的搜索层，而是在叶子节点的贪婪模拟中通过分段策略自动处理。
+
+% ==================== 模型构建与论证 ====================
+\section{模型构建与论证}
+
+\subsection{搜索树结构}
+
+搜索树的根节点为 $B(1,5)$，在每个内部节点（当前位置 $p$，已过天数 $t_{\text{sofar}}$）上，分支选项为：
+\begin{equation}
+  \text{branch}(p) = \{E\} \cup \{p'\in\{W_1,W_2,W_3,S_1,S_2\}\mid p'\neq p,\ t_{\text{sofar}}+d(p,p')+d(p',E)\le 30\}
+\end{equation}
+即可以选择直接驶向 $E$，或驶向未与当前位置相同的任一中间点（以 $p'$ 到 $E$ 可行时间为前提）。
+
+到达叶子节点（$E$）后，对路径中所有作业停靠点的总工作天数进行枚举——这正是路径骨架枚举对应的工作天数决策。对每种工作天数组合 $(W_1,\dots,W_{n_w})$，调用贪婪前向模拟评估资源可行性并计算 $Z$ 和 $M$。
+
+\subsection{约束传播与域缩减}
+
+在搜索过程中自动执行域缩减：
+
+\begin{itemize}
+  \item \textbf{资源检查}：若当前燃油 $O<2$，则 $\{p'\mid d(p,p')>0\}$ 被全部删除（无法移动），仅剩 $\{E\}$ 如果足够近。
+  \item \textbf{位置约束}：若当前位置不在作业点，则"工作"不是可用动作（本树的构造中，工作天数是叶子枚举的对象，因此这条在搜索树层面隐式处理）。
+  \item \textbf{连续作业约束}：在贪婪模拟的内部，若连续作业天数已达 $WM_j$，则下一个必须是非作业日（停泊或移动已离开）。
+\end{itemize}
+
+约束传播是单调的——只删除值、不添加值——保证有限步内终止。
+
+\subsection{三种剪枝规则}
+
+\begin{enumerate}
+  \item \textbf{规则 1——上界剪枝（收紧版，v2 核心改进）}。在搜索树任意节点 $(p,t)$，计算从该节点出发还能获得的最大 $Z$ 增量：
+  \begin{equation}
+    \text{UB}_Z(p,t) = \text{max\_work\_with\_park}\big(D^{\max}=3,\ \text{remaining}=30-t-d(p,E)\big)\times 28
+  \end{equation}
+  其中 $\text{max\_work\_with\_park}(mc,r)$ 计算：在 $r$ 天内，最多能安排多少天作业在 $W_3$ 上，考虑最优分段策略（每 $mc$ 天一段，段间 1 停泊日）。设 $k$ 为完整块数（$k\cdot mc+(k-1)\le r$ 的最大 $k$），$\text{slack}=r-[k\cdot mc+(k-1)]$，则：
+  \begin{equation}
+    \text{max\_work} = \max\big(k\cdot mc+\min(mc,\text{slack}-1),\ \min(mc,r)\big)
+  \end{equation}
+
+  若 $100+\text{UB}_Z(p,t)\le Z^{\text{best}}$，则剪除以 $(p,t)$ 为根的整棵子树。
+
+  \begin{proposition}[上界剪枝的安全性与收紧效果]\label{prop:ub-safe}
+    v1 原版上界公式为 $\text{UB}_Z = \text{remaining}\times 28$（未考虑连续作业上限），v2 收紧版将 $\text{max\_work}$ 限定在分段策略可达范围内。收紧版的上界更紧（$\le$ 原版上界），因此剪枝更早。任何实际航程的 $Z$ 不可能超过该上界，保证剪枝安全。
+  \end{proposition}
+
+  \item \textbf{规则 2——相邻去重}。跳过与当前位置相同的点（$d=0$ 的无意义重复）。$B\to W_1\to W_1\to E$ 与 $B\to W_1\to E$ 本质相同（中间重复不增加任何信息）。注意：停泊策略通过在同一点插入停泊日来实现分段作业，这不依赖相邻去重的放松——停泊日是在 greedy\_sim 内部按分段策略插入的，而非通过让骨架中出现相邻相同点来表达。
+
+  \item \textbf{规则 3——前向检查}。添加点 $p'$ 前验证：
+  \begin{equation}
+    t_{\text{sofar}} + d(p,p') + d(p',E) \le 30
+  \end{equation}
+  若不满足，则 $p'$ 被剪除。此规则保证了从当前点经 $p'$ 仍有可能在时限内到达终点。
+\end{enumerate}
+
+\subsection{叶子节点枚举与资源评估}
+
+到达叶子节点后，工作天数 $(W_1,\dots,W_{n_w})$ 的枚举上界由 $\text{max\_work\_with\_park}(WM_j,\text{remaining})$ 动态确定（支持 $W_j>WM_j$ 的多段作业情况）。对每种组合：
+\begin{itemize}
+  \item 利用分段最优策略将 $W_j$ 拆分为 $\lceil W_j/WM_j\rceil$ 个作业块，块间各插入 1 天停泊；
+  \item 构建完整的逐日消费序列；
+  \item 逐日模拟资源链：先扣除当日消耗→若在补给日，计算未来需求→确定采购量→检验载重和非负约束。
+\end{itemize}
+
+\subsection{停泊-再作业的信息流}
+
+\begin{center}
+\begin{tabular}{c|c|c}
+  \textbf{搜索层} & \textbf{决策变量} & \textbf{停泊的处理} \\
+  \hline
+  分支节点 & 下一个停靠点 $p'$ & 跳过自身（规则 2） \\
+  叶子枚举 & 总工作天数 $W_j$ & $\text{max\_work\_with\_park}$ 扩展上界 \\
+  \texttt{gsim} 模拟 & 日程序列 & 按 $\lceil W_j/WM_j\rceil$ 分段，块间插停泊日 \\
+\end{tabular}
+\end{center}
+
+停泊不是独立的分支维度，而是在叶子枚举和贪婪模拟两个层面被嵌入，避免了搜索树的额外分支。
+
+% ==================== 数值计算 ====================
+\section{数值计算}
+
+\subsection{实现}
+
+MATLAB 实现（\texttt{solve\_cp.m}）采用递归函数 \texttt{cp\_search} 实现深度优先搜索。在函数内根据 $\text{path}$, $\text{tsf}$（travel so far）, $\text{wa}$（work\_at 索引）, $\text{ww}$（work\_which 索引）的状态进行分支和回溯。
+
+\subsection{实验结果}
+
+\begin{table}[H]
+  \centering
+  \caption{CP 实验结果}
+  \begin{tabular}{lc}
+    \toprule
+    指标 & 含停泊策略（收紧 UB） \\
+    \midrule
+    最优 $Z$        & $\mathbf{328}$ \\
+    最优 $M$        & $\mathbf{21}$ \\
+    路径            & $B\!\to\!W_1\!\to\!S_2\!\to\!W_3\!\to\!S_2\!\to\!E$ \\
+    旅行天数        & $19$ \\
+    工作天数        & $9$ (W1=3, W3=3+停1+3) \\
+    探索节点数      & $\mathbf{192}$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{节点数减少的原因}
+
+v2 的 $192$ 个搜索节点显著少于 v1 的 $313$ 个（$-38.7\%$），原因有两层：
+
+\begin{enumerate}
+  \item \textbf{收紧的上界裁剪}：考虑分段最优策略后，$\text{UB}_Z$ 更紧，在搜索早期即有效剪除低潜力路径。
+
+  \item \textbf{路径简洁}：最优路径仅经过 $W_1,S_2,W_3$ 三个中间点（不含重复），搜索树浅，到达叶子节点步骤少。
+\end{enumerate}
+
+% ==================== 结果分析 ====================
+\section{结果分析}
+
+\subsection{最优解}
+
+CP 方法获得的最优解为 $\mathbf{Z=328}$, $\mathbf{M=21}$，路径为 $B\to W_1\to S_2\to W_3\to S_2\to E$。
+
+\subsection{CP 与 MILP 的方法论对比}
+
+\begin{table}[H]
+  \centering
+  \caption{CP vs MILP 在本题中的方法对比}
+  \begin{tabular}{p{2.5cm}p{4.5cm}p{4.5cm}}
+    \toprule
+    维度 & CP（方案四） & MILP（方案二） \\
+    \midrule
+    搜索机制 & 递归回溯 + 剪枝 & 分支定界 + 线性松弛 \\
+    约束表达 & 直接删除域中值 & big-M 线性化为不等式 \\
+    连续作业约束 & 一行传播规则（计数器检查） & 二元变量 $b_j$ + big-M \\
+    下界来源 & 当前最优解 & LP 松弛 \\
+    优势场景 & 约束多但变量少 & 变量多但有良好线性结构 \\
+    工具箱依赖 & 无 & Optimization Toolbox \\
+    运行时间 & $<1$ s & $180\sim 480$ s \\
+    搜索节点 & $192$ & $\sim 488$K 骨架（外层） \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+两者的互补性在本题中表现明显：
+\begin{itemize}
+  \item CP 在\textbf{约束复杂但变量离散且范围小}时高效——仅用 $192$ 次递归调用即完成搜索。
+  \item MILP 在\textbf{线性结构良好}时高效——$intlinprog$ 的分支定界可在大量线性约束下自动剪枝。但本题需要外层骨架枚举 + 内层 MILP 的两层结构，总调用量大。
+\end{itemize}
+
+\subsection{扩展至任务 3 的前景}
+
+任务 3（$30\times 30$ 网格，$90$ 天，天气概率 $0.8/0.2$）的搜索空间激烈膨胀。CP 的上界剪枝规则在此时预计将发挥关键作用：
+
+\begin{itemize}
+  \item \textbf{天气信息的集成}：在任务 3 中，两种天气状态（好/坏）以已知概率出现，影响移动消耗和作业收益。CP 框架天然支持在搜索节点上利用概率信息——将确定性 UB 替换为期望 UB：
+  \begin{equation}
+    \mathbb{E}[Z\mid(p,t,\text{resources})] = \sum_{\text{weather}} P(\text{weather})\cdot \text{UB}_Z^{\text{weather}}(p,t)
+  \end{equation}
+  若期望 UB 低于当前最佳，整条路径被剪除。这种概率加权剪枝在 MILP 中较难实现（MILP 的分支定界基于确定性松弛）。
+
+  \item \textbf{规模适配}：$90$ 天的时间窗口意味着停泊-再作业策略有更大的应用空间，上界剪枝的收紧效果将更显著（可用天数多→分段更多→收紧后的上界与原始上界差距更大）。
+\end{itemize}
+
+\subsection{方法评价}
+
+\textbf{优势}：
+\begin{itemize}
+  \item 搜索树透明——每个节点可追踪、可解释。
+  \item 三种剪枝算法大幅减少搜索空间（$5^{30}\to 192$ 节点）。
+  \item 约束表达接近题目原文，新增停泊策略自然融入框架。
+  \item 上界剪枝是规模鲁棒的——在大规模问题中反而更有效。
+  \item 天然支持不确定信息的集成（概率加权上界）。
+\end{itemize}
+
+\textbf{局限}：
+\begin{itemize}
+  \item 需手工实现传播和搜索逻辑，开发工作量大。
+  \item 递归深度受 MATLAB 默认限制（$500$），在 $30\times 30$ 网格中可能需要调整 \texttt{set(0,'RecursionLimit',N)}。
+  \item 停泊策略的枚举使叶子节点组合空间增大（$\text{max\_work\_with\_park}$ 扩展了各作业点的 $W_j$ 上界）。
+  \item 性能对剪枝顺序敏感——若最优解对应的路径在搜索早期未被访问到，大量时间将消耗在次优分支。
+\end{itemize}
+
+\end{document}

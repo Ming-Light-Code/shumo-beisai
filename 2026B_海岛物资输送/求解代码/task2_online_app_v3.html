@@ -1,0 +1,228 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>2026B 任务2 — 在线CP决策模型 v3</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.app{max-width:1400px;margin:0 auto;padding:16px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.header h1{font-size:1.3rem;color:#f8fafc}
+.badge{background:#1e293b;padding:3px 10px;border-radius:5px;font-size:.72rem;color:#94a3b8}
+.main{display:grid;grid-template-columns:minmax(460px,1fr) 360px;gap:14px;align-items:start}
+@media(max-width:880px){.main{grid-template-columns:1fr}}
+.grid-panel{background:#1e293b;border-radius:10px;padding:14px}
+.grid-container{position:relative;width:100%;aspect-ratio:1;max-width:500px;margin:0 auto}
+.grid-bg{display:grid;grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(10,1fr);width:100%;height:100%;border:1px solid #334155}
+.grid-bg .cell{border:1px solid #1e293b;background:#0f172a}
+.point-marker{position:absolute;transform:translate(-50%,-50%);z-index:2;font-weight:700;font-size:.65rem;text-align:center;pointer-events:none}
+.point-marker.ship{width:22px;height:22px;background:#f59e0b;border-radius:50%;border:2px solid #fbbf24;box-shadow:0 0 12px rgba(245,158,11,.5);z-index:5;font-size:0;transition:all .3s}
+.point-marker.supply{width:20px;height:20px;background:#10b981;border-radius:6px;color:#fff;line-height:20px;font-size:.6rem;border:2px solid #34d399}
+.point-marker.work{width:20px;height:20px;background:#6366f1;border-radius:50%;color:#fff;line-height:20px;font-size:.6rem;border:2px solid #818cf8}
+.point-marker.start{width:20px;height:20px;background:#3b82f6;border-radius:4px;color:#fff;line-height:20px;font-size:.58rem;border:2px solid #60a5fa}
+.point-marker.end{width:22px;height:22px;background:#ef4444;border-radius:4px;color:#fff;line-height:22px;font-size:.58rem;border:2px solid #f87171}
+.right-panel{display:flex;flex-direction:column;gap:10px}
+.card{background:#1e293b;border-radius:10px;padding:12px}
+.card h3{font-size:.75rem;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.stat-item{background:#0f172a;border-radius:6px;padding:7px;text-align:center}
+.stat-item .sv{font-size:1.1rem;font-weight:700;color:#f8fafc}
+.stat-item .sl{font-size:.6rem;color:#64748b;margin-top:1px}
+.resource-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:.72rem}
+.resource-row .lbl{color:#94a3b8;width:18px}
+.resource-row .bb{flex:1;height:5px;background:#334155;border-radius:3px;margin:0 8px;overflow:hidden}
+.resource-row .bf{height:100%;border-radius:3px;transition:width .3s}
+.resource-row .vl{width:42px;text-align:right;font-variant-numeric:tabular-nums}
+.bfO{background:#f59e0b}.bfH{background:#3b82f6}.bfF{background:#10b981}.bfM{background:#a78bfa}.bfZ{background:#f472b6}
+.btn-row{display:flex;gap:7px;flex-wrap:wrap}
+button{padding:7px 14px;border:none;border-radius:5px;cursor:pointer;font-size:.75rem;font-weight:500;transition:all .15s}
+button:disabled{opacity:.35;cursor:not-allowed}
+.btn-s{background:#3b82f6;color:#fff}.btn-s:hover:not(:disabled){background:#2563eb}
+.btn-a{background:#10b981;color:#fff}.btn-a:hover:not(:disabled){background:#059669}
+.btn-r{background:#ef4444;color:#fff}.btn-r:hover:not(:disabled){background:#dc2626}
+.btn-w{background:#334155;color:#e2e8f0;padding:7px 10px;font-size:.7rem}.btn-w:hover:not(:disabled){background:#475569}
+.btn-w.selT{background:#991b1b;color:#fca5a5;border:1px solid #f87171}
+.btn-w.selN{background:#166534;color:#86efac;border:1px solid #4ade80}
+.log-list{max-height:180px;overflow-y:auto;font-size:.65rem;font-family:'Cascadia Code',monospace}
+.log-list .ll{padding:2px 0;border-bottom:1px solid #1e293b;color:#94a3b8}
+.log-list .ll.dc{color:#f59e0b}.log-list .ll.sp{color:#10b981}.log-list .ll.ar{color:#f472b6}
+.weather-picker{display:flex;gap:4px;align-items:center;font-size:.72rem;color:#94a3b8;margin-top:6px}
+.info-line{font-size:.68rem;color:#64748b;line-height:1.4}
+.info-line span{color:#94a3b8;font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="header">
+<div>
+<h1>任务2 · 在线CP决策模型</h1>
+<div class="badge">每日: 观测w<sub>t</sub> → {天气变? CP重规划 : 继续执行} → a<sub>t</sub>* → S<sub>t+1</sub></div>
+</div>
+</div>
+<div class="main">
+<div class="grid-panel">
+<div class="grid-container" id="gridContainer">
+<div class="grid-bg" id="gridBg"></div>
+<svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none" id="trailSvg"></svg>
+</div>
+</div>
+<div class="right-panel">
+<div class="card">
+<h3>资源</h3>
+<div class="resource-row"><span class="lbl">O</span><div class="bb"><div class="bf bfO" id="barO" style="width:29%"></div></div><span class="vl" id="valO">35</span></div>
+<div class="resource-row"><span class="lbl">H</span><div class="bb"><div class="bf bfH" id="barH" style="width:37%"></div></div><span class="vl" id="valH">45</span></div>
+<div class="resource-row"><span class="lbl">F</span><div class="bb"><div class="bf bfF" id="barF" style="width:25%"></div></div><span class="vl" id="valF">30</span></div>
+<div class="resource-row"><span class="lbl" style="color:#a78bfa">M</span><div class="bb"><div class="bf bfM" id="barM" style="width:32%"></div></div><span class="vl" id="valM" style="color:#a78bfa">240</span></div>
+<div class="resource-row"><span class="lbl" style="color:#f472b6">Z</span><div class="bb"><div class="bf bfZ" id="barZ" style="width:20%"></div></div><span class="vl" id="valZ" style="color:#f472b6">100</span></div>
+</div>
+<div class="card">
+<h3>状态</h3>
+<div class="stat-grid">
+<div class="stat-item"><div class="sv" id="statDay">0</div><div class="sl">天 / 30</div></div>
+<div class="stat-item"><div class="sv" id="statPos">B(1,5)</div><div class="sl">位置</div></div>
+<div class="stat-item"><div class="sv" id="statW">—</div><div class="sl">今日天气</div></div>
+<div class="stat-item"><div class="sv" id="statLoad">110</div><div class="sl">载重/120</div></div>
+</div>
+<div class="weather-picker">
+<span>下日天气:</span>
+<button class="btn-w" id="btnNextT" onclick="setNextWeather('T')">雷暴</button>
+<button class="btn-w selN" id="btnNextN" onclick="setNextWeather('N')">正常</button>
+<span style="font-size:.6rem;color:#475569">(手动选/自动序列)</span>
+</div>
+</div>
+<div class="btn-row">
+<button class="btn-s" id="btnStep" onclick="stepDay()">▶ 执行当日决策</button>
+<button class="btn-a" id="btnAuto" onclick="toggleAuto()">⏩ 自动</button>
+<button class="btn-r" onclick="resetSim()">↺ 重置</button>
+</div>
+<div class="card">
+<h3>日志</h3>
+<div class="log-list" id="logList"><div class="ll">等待开始…</div></div>
+</div>
+<div class="card">
+<h3>CP 规划</h3>
+<div class="info-line">路径: <span id="cpPath">—</span></div>
+<div class="info-line">估 Z: <span id="cpZ">—</span> M: <span id="cpM">—</span> 节点: <span id="cpNodes">—</span></div>
+</div>
+</div>
+</div>
+</div>
+<script>
+const ALL=[[1,5],[10,5],[2,7],[5,3],[8,8],[3,4],[7,6]],NM=['B','E','W1','W2','W3','S1','S2'];
+const WY=[20,15,28],WM=[4,5,3],MD=30,ML=120;
+const IO=35,IH=45,IF=30,IM=240,IZ=100;
+const CS={N:{MO:2,MH:3,MF:2,PO:1,PH:1,PF:1,WO:5,WH:4,WF:3,pO:2,pH:1,pF:2},T:{MO:8,MH:4,MF:3,PO:3,PH:3,PF:2,WO:8,WH:6,WF:6,pO:2,pH:1,pF:2}};
+const DT=Array.from({length:7},(_,i)=>Array.from({length:7},(_,j)=>Math.abs(ALL[i][0]-ALL[j][0])+Math.abs(ALL[i][1]-ALL[j][1])));
+const IT=[2,3,4,5,6];
+
+let S,WS,DL,AT,TP,PW,OM,CPINIT,NXW=null;
+function iS(){return{pt:0,pos:[...ALL[0]],O:IO,H:IH,F:IF,M:IM,Z:IZ,co:0,day:0,pl:null,lg:0,si:0,pi:0};}
+
+function mW(mc,r){let b=Math.min(mc,r);for(let k=1;k<=r+1;k++){let s=k*mc+(k-1);if(s>r)break;b=Math.max(b,k*mc);let sl=r-s;if(sl>=1)b=Math.max(b,k*mc+Math.min(mc,sl-1));}return b;}
+function eP(n,m){let c=[];function r(p,rm,cu){if(p===n-1){cu[p]=rm;c.push([...cu]);return;}for(let i=0;i<=rm;i++){cu[p]=i;r(p+1,rm-i,cu);}}r(0,m,new Array(n).fill(0));return c;}
+
+function sim(pid,wd,ps,init,cs){
+  let m=pid.length-2,wa=[],ww=[];
+  for(let i=1;i<pid.length;i++){if(pid[i]>=2&&pid[i]<=4){wa.push(i);ww.push(pid[i]-2);}}
+  let tt=0;for(let k=0;k<=m;k++)tt+=DT[pid[k]][pid[k+1]];
+  let T=tt+(wd?wd.reduce((a,b)=>a+b,0):0)+(ps?ps.reduce((a,b)=>a+b,0):0)+100;
+  let cO=new Array(T).fill(0),cH=new Array(T).fill(0),cF=new Array(T).fill(0),zG=new Array(T).fill(0),iS=new Array(T).fill(false),day=0;
+  for(let k=0;k<=m;k++){let d=DT[pid[k]][pid[k+1]];for(let pd=0;pd<(ps?ps[k]:0);pd++){cO[day]=cs.PO;cH[day]=cs.PH;cF[day]=cs.PF;day++;}
+    for(let dd=0;dd<d;dd++){cO[day]=cs.MO;cH[day]=cs.MH;cF[day]=cs.MF;day++;if(dd===d-1&&(pid[k+1]===5||pid[k+1]===6))iS[day-1]=true;}
+    if(wd){let wk=wa.indexOf(k+1);if(wk>=0&&wd[wk]>0){let mc=WM[ww[wk]],yl=WY[ww[wk]],rm=wd[wk];while(rm>0){let ch=Math.min(rm,mc);for(let w=0;w<ch;w++){cO[day]=cs.WO;cH[day]=cs.WH;cF[day]=cs.WF;zG[day]=yl;day++;}rm-=ch;if(rm>0){cO[day]=cs.PO;cH[day]=cs.PH;cF[day]=cs.PF;day++;}}}}}
+  let Ta=day,O=init.O,H=init.H,F=init.F,M=init.M,Z=init.Z;
+  for(let t=0;t<Ta;t++){O-=cO[t];H-=cH[t];F-=cF[t];Z+=zG[t];if(O<0||H<0||F<0)return{ok:false};if(O+H+F>ML+1e-9)return{ok:false};
+    if(iS[t]){let ns=Ta;for(let tt=t+1;tt<Ta;tt++){if(iS[tt]){ns=tt;break;}}let nO=0,nH=0,nF=0;for(let tt=t+1;tt<=ns;tt++){if(tt>=Ta)break;nO+=cO[tt];nH+=cH[tt];nF+=cF[tt];}
+    let sp=ML-(O+H+F),bO=Math.max(0,nO-O),bH=Math.max(0,nH-H),bF=Math.max(0,nF-F);if(bO+bH+bF>sp)return{ok:false};if(ns>=Ta&&(O+bO<nO||H+bH<nH||F+bF<nF))return{ok:false};
+    let cost=bO*cs.pO+bH*cs.pH+bF*cs.pF;if(cost>M)return{ok:false};O+=bO;H+=bH;F+=bF;M-=cost;}}
+  return{ok:true,Z,M};
+}
+
+function cpS(path,tsf,wa,ww,best,cs,nd,rd){
+  nd.c++;let lp=path[path.length-1];
+  if(lp!==1){let dE=DT[lp][1],rem=rd-tsf;if(rem<dE)return;let ub=CPINIT.Z+mW(3,rem-dE)*28;if(ub<=best.Z&&best.Z>-Infinity)return;}
+  let dE=DT[lp][1];if(tsf+dE<=rd){let fp=[...path,1],m=fp.length-2,tt=0;for(let k=0;k<=m;k++)tt+=DT[fp[k]][fp[k+1]];let rD=rd-tt;
+    if(wa.length===0){let nS=m+1,cm=eP(nS+1,rD);for(let ps of cm){let pt=ps.slice(0,nS);let r=sim(fp,[],pt,CPINIT,cs);if(r.ok&&(r.Z>best.Z||(r.Z===best.Z&&r.M>best.M))){best.Z=r.Z;best.M=r.M;best.path=[...fp];best.wd=[];best.ps=[...pt];}}}
+    else{let nw=wa.length,mWk=wa.map((_,j)=>mW(WM[ww[j]],rD)),sz=mWk.map(x=>x+1),nc=sz.reduce((a,b)=>a*b,1);
+      for(let ci=0;ci<nc;ci++){let wd=new Array(nw).fill(0),t2=ci;for(let j=nw-1;j>=0;j--){wd[j]=t2%sz[j];t2=Math.floor(t2/sz[j]);}
+        let ts=0;for(let j=0;j<nw;j++){if(wd[j]>0)ts+=wd[j]+Math.max(0,Math.ceil(wd[j]/WM[ww[j]])-1);}if(tt+ts>rd)continue;
+        let pr=rd-tt-ts,nS=m+1,cm=eP(nS,pr);for(let ps of cm){if(tt+ts+ps.reduce((a,b)=>a+b,0)>rd)continue;
+          let r=sim(fp,wd,ps,CPINIT,cs);if(r.ok&&(r.Z>best.Z||(r.Z===best.Z&&r.M>best.M))){best.Z=r.Z;best.M=r.M;best.path=[...fp];best.wd=[...wd];best.ps=[...ps];}}}}}
+  for(let np of IT){if(np===lp)continue;let d=DT[lp][np];if(tsf+d>rd)continue;let de2=DT[np][1];if(tsf+d+de2>rd)continue;
+    let nwa=[...wa],nww=[...ww];if(np>=2&&np<=4){nwa.push(path.length+1);nww.push(np-2);}cpS([...path,np],tsf+d,nwa,nww,best,cs,nd,rd);}
+}
+
+function cP(curPt,cs,remDays){
+  CPINIT={O:S.O,H:S.H,F:S.F,M:S.M,Z:S.Z};
+  let best={Z:-Infinity,M:-Infinity,path:[curPt,1],wd:[],ps:[]},nd={c:0};
+  cpS([curPt],0,[],[],best,cs,nd,remDays);
+  return{fe:best.Z>-Infinity,path:best.path,pa:best.ps,wo:best.wd,nd:nd.c,eZ:best.Z,eM:best.M};
+}
+
+function sD(){
+  if(S.day>=MD||S.pt===1){if(S.pt===1)aL('已在终点E','ar');return;}
+  let w=NXW||WS[S.day];NXW=null;
+  let cs=CS[w],wn=w==='T'?'雷暴':'正常',wc=(w!==PW),dt='';
+  S.day++;let act='';
+
+  if(!S.pl||wc){
+    let remD=MD-(S.day-1),planPt=S.pt;
+    S.pl=cP(planPt,cs,remD);S.lg=0;S.si=0;S.pi=0;
+    if(!S.pl.fe){aL(`Day ${S.day}: 无可达方案`,'');uU('NO FEASIBLE');PW=w;return;}
+    if(wc||S.day===1){aL(`CP重规划(天气=${wn} 剩余${remD}天): ${S.pl.path.map(i=>NM[i]).join('→')} | Z估=${S.pl.eZ} M估=${S.pl.eM} 节点${S.pl.nd}`,'dc');uC();}
+  }
+  let pl=S.pl,np=pl.path[S.lg+1];
+  if(pl.pa&&S.lg<pl.pa.length&&S.pi<pl.pa[S.lg]){act='停泊(海上)';S.O-=cs.PO;S.H-=cs.PH;S.F-=cs.PF;S.co=0;S.pi++;}
+  else if(S.si<DT[S.pt][np]){S.O-=cs.MO;S.H-=cs.MH;S.F-=cs.MF;S.co=0;S.si++;
+    let fr=ALL[S.pt],to=ALL[np],dx=to[0]-fr[0],dy=to[1]-fr[1],sx=Math.abs(dx),sy=Math.abs(dy),st=S.si,dT=sx+sy;
+    if(st<=sx){S.pos[0]=fr[0]+Math.sign(dx)*st;S.pos[1]=fr[1];}else{S.pos[0]=to[0];S.pos[1]=fr[1]+Math.sign(dy)*(st-sx);}
+    act=`移动→(${S.pos[0]},${S.pos[1]})`;
+    if(S.si>=dT){S.pt=np;S.pos=[...ALL[np]];S.si=0;S.pi=0;
+      if(S.pt===5||S.pt===6){let rT=0,rP=0;for(let k=S.lg;k<pl.path.length-2;k++){rT+=DT[pl.path[k+1]][pl.path[k+2]];if(k+2<(pl.pa?pl.pa.length:0))rP+=pl.pa[k+1];}
+        let nO=rT*cs.MO+rP*cs.PO,nH=rT*cs.MH+rP*cs.PH,nF=rT*cs.MF+rP*cs.PF,sp=ML-(S.O+S.H+S.F),bO=Math.max(0,nO-S.O),bH=Math.max(0,nH-S.H),bF=Math.max(0,nF-S.F);
+        if(bO+bH+bF<=sp){let cost=bO*cs.pO+bH*cs.pH+bF*cs.pF;if(cost<=S.M){S.O+=bO;S.H+=bH;S.F+=bF;S.M-=cost;act=`补给@${NM[S.pt]}`;dt=`+O${Math.round(bO)}+H${Math.round(bH)}+F${Math.round(bF)} 花${Math.round(cost)}`;aL(`Day ${S.day}: ${act} | ${dt} | M=${Math.round(S.M)}`,'sp');}}}
+      else if(S.pt===1){act='抵达E!';aL(`Day ${S.day}: ★ 抵达E Z=${S.Z} M=${Math.round(S.M)}`,'ar');}
+      S.lg++;}
+  }
+  if(!dt)aL(`Day ${S.day}: ${act} | ${wn} | O=${Math.round(S.O)} H=${Math.round(S.H)} F=${Math.round(S.F)} Z=${S.Z}`,'');
+  TP.push([...S.pos]);PW=w;uU(act);
+  document.getElementById('btnNextT').className='btn-w';document.getElementById('btnNextN').className='btn-w';
+}
+
+function tA(){if(AT){clearInterval(AT);AT=null;document.getElementById('btnAuto').textContent='⏩ 自动';return;}
+  document.getElementById('btnAuto').textContent='⏸ 停止';AT=setInterval(()=>{if(S.day>=MD||S.pt===1){tA();return;}sD();},450);}
+function rT(){if(AT)tA();S=iS();TP=[[...ALL[0]]];PW=null;NXW=null;
+  document.getElementById('logList').innerHTML='<div class="ll">已重置</div>';document.getElementById('cpPath').textContent='—';document.getElementById('cpZ').textContent='—';document.getElementById('cpM').textContent='—';document.getElementById('cpNodes').textContent='—';
+  uU('');rA();}
+function sNW(w){NXW=w;document.getElementById('btnNextT').className='btn-w'+(w==='T'?' selT':'');document.getElementById('btnNextN').className='btn-w'+(w==='N'?' selN':'');}
+
+function uU(act){document.getElementById('statDay').textContent=S.day;document.getElementById('statPos').textContent=`${NM[S.pt]}(${S.pos[0]},${S.pos[1]})`;
+  let w=WS[Math.min(S.day-1,MD-1)]||'—',wn=w==='T'?'雷暴':w==='N'?'正常':'—';
+  document.getElementById('statW').textContent=S.day>0?wn:'—';document.getElementById('statW').style.color=w==='T'?'#fca5a5':w==='N'?'#86efac':'#64748b';
+  document.getElementById('statLoad').textContent=`${Math.round(S.O+S.H+S.F)}/120`;
+  document.getElementById('barO').style.width=`${(S.O/ML*100).toFixed(1)}%`;document.getElementById('valO').textContent=Math.round(S.O);
+  document.getElementById('barH').style.width=`${(S.H/ML*100).toFixed(1)}%`;document.getElementById('valH').textContent=Math.round(S.H);
+  document.getElementById('barF').style.width=`${(S.F/ML*100).toFixed(1)}%`;document.getElementById('valF').textContent=Math.round(S.F);
+  document.getElementById('barM').style.width=`${(Math.max(0,S.M)/IM*100).toFixed(1)}%`;document.getElementById('valM').textContent=Math.round(S.M);
+  document.getElementById('barZ').style.width=`${(S.Z/500*100).toFixed(1)}%`;document.getElementById('valZ').textContent=S.Z;
+  document.getElementById('btnStep').disabled=(S.day>=MD||S.pt===1);rTl();rSh();}
+function uC(){let p=S.pl;if(!p)return;document.getElementById('cpPath').textContent=p.path.map(i=>NM[i]).join(' → ');document.getElementById('cpZ').textContent=p.eZ;document.getElementById('cpM').textContent=p.eM;document.getElementById('cpNodes').textContent=p.nd;}
+function aL(msg,cl){let d=document.createElement('div');d.className='ll'+(cl?' '+cl:'');d.textContent=msg;let l=document.getElementById('logList');l.appendChild(d);l.scrollTop=l.scrollHeight;}
+
+function rA(){let c=document.getElementById('gridContainer'),g=document.getElementById('gridBg');g.innerHTML='';
+  for(let r=0;r<10;r++)for(let cc=0;cc<10;cc++){let ce=document.createElement('div');ce.className='cell';g.appendChild(ce);}
+  c.querySelectorAll('.point-marker:not(.ship)').forEach(e=>e.remove());
+  let mk=[{i:0,cl:'start',l:'B'},{i:1,cl:'end',l:'E'},{i:2,cl:'work',l:'W1'},{i:3,cl:'work',l:'W2'},{i:4,cl:'work',l:'W3'},{i:5,cl:'supply',l:'S1'},{i:6,cl:'supply',l:'S2'}];
+  for(let m of mk){let d=document.createElement('div');d.className='point-marker '+m.cl;d.textContent=m.l;let[x,y]=ALL[m.i];d.style.left=`${(x/10*100).toFixed(1)}%`;d.style.top=`${((11-y)/10*100).toFixed(1)}%`;c.appendChild(d);}
+  let s=c.querySelector('.point-marker.ship');if(!s){s=document.createElement('div');s.className='point-marker ship';c.appendChild(s);}rSh();rTl();}
+function rSh(){let s=document.getElementById('gridContainer').querySelector('.point-marker.ship');if(!s)return;s.style.left=`${(S.pos[0]/10*100).toFixed(1)}%`;s.style.top=`${((11-S.pos[1])/10*100).toFixed(1)}%`;}
+function rTl(){let svg=document.getElementById('trailSvg');if(TP.length<2){svg.innerHTML='';return;}let h='';for(let i=1;i<TP.length;i++){let[x1,y1]=TP[i-1],[x2,y2]=TP[i];h+=`<line x1="${(x1/10*100).toFixed(1)}%" y1="${((11-y1)/10*100).toFixed(1)}%" x2="${(x2/10*100).toFixed(1)}%" y2="${((11-y2)/10*100).toFixed(1)}%" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 2" opacity="0.4"/>`;}svg.innerHTML=h;}
+
+WS=Array(MD).fill('T');S=iS();TP=[[...ALL[0]]];PW=null;OM='all_thunder';
+window.addEventListener('resize',rA);rA();uU('');
+
+function stepDay(){sD();}function toggleAuto(){tA();}function resetSim(){rT();}function setNextWeather(w){sNW(w);}
+</script>
+</body>
+</html>

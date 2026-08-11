@@ -1,0 +1,11 @@
+{
+  "problem": "Task 3 (CP Expected-Value)",
+  "method": "Constraint Programming + Expected Consumption + Safety Margins",
+  "path": "B -> W1 -> S1 -> S2 -> W3 -> S2 -> E",
+  "Z": 596,
+  "M": 14,
+  "work_days": {
+    "W1": 3,
+    "W3": 12
+  }
+}

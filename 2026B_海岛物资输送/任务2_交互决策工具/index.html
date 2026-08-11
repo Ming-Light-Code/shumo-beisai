@@ -1,0 +1,233 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>任务2 · 在线CP决策工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
+.container{max-width:820px;margin:0 auto;padding:24px 16px}
+h1{font-size:1.4rem;font-weight:600;margin-bottom:4px}
+.subtitle{color:#666;font-size:.85rem;margin-bottom:20px}
+.card{background:#fff;border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card h2{font-size:.95rem;font-weight:600;margin-bottom:14px;color:#333;border-bottom:1px solid #eee;padding-bottom:8px}
+.sg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.si{display:flex;flex-direction:column}
+.si label{font-size:.78rem;color:#666;margin-bottom:3px;font-weight:500}
+.si input{width:100%;padding:8px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:.9rem;font-family:inherit;background:#fafbfc}
+.si input:focus{outline:none;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+.si input.ro{background:#f0f0f0;color:#555}
+.pb{background:#eef2ff;color:#4338ca;padding:4px 10px;border-radius:4px;font-size:.82rem;font-weight:600}
+.wg{display:flex;gap:12px;margin:12px 0}
+.wb{flex:1;padding:14px;border:2px solid #d0d5dd;border-radius:8px;background:#fff;cursor:pointer;text-align:center;font-size:.95rem;font-weight:500;transition:all .15s}
+.wb:hover{border-color:#a5b4fc}
+.wb.act{border-color:#4f46e5;background:#eef2ff;color:#4338ca}
+.wb .ic{font-size:1.5rem;display:block;margin-bottom:4px}
+.bd{width:100%;padding:14px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer}
+.bd:hover{background:#4338ca}
+.rb{padding:16px;border-radius:8px;margin-top:12px}
+.rb.ap{background:#fef3c7;border:1px solid #fcd34d}
+.rb.am{background:#dbeafe;border:1px solid #93c5fd}
+.rb.as{background:#d1fae5;border:1px solid #6ee7b7}
+.rb.aw{background:#ede9fe;border:1px solid #c4b5fd}
+.rb.aa{background:#d1fae5;border:1px solid #34d399}
+.rb.ax{background:#fee2e2;border:1px solid #fca5a5}
+.ra{font-size:1.1rem;font-weight:700;margin-bottom:6px}
+.rr{font-size:.85rem;color:#555;line-height:1.5}
+.rn{padding:10px;background:#f9fafb;border-radius:6px;margin-top:10px;font-size:.82rem;color:#666;line-height:1.6}
+.ht{width:100%;font-size:.82rem;border-collapse:collapse}
+.ht th{text-align:left;padding:8px 6px;border-bottom:2px solid #e5e7eb;color:#666;font-weight:600}
+.ht td{padding:7px 6px;border-bottom:1px solid #f3f4f6}
+.ht .wn{color:#059669}.ht .wt{color:#dc2626;font-weight:600}
+.ft{text-align:center;color:#999;font-size:.75rem;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>⚓ 任务2 · 在线CP决策工具</h1>
+<p class="subtitle">约束规划驱动 · 逐日观测天气 → CP规划 → 执行动作 · 正常/雷暴自适应</p>
+
+<div class="card"><h2>📊 当前状态</h2>
+<div class="sg">
+<div class="si"><label>第几天</label><input id="dn" type="number" value="1" min="1" max="30"></div>
+<div class="si"><label>当前位置</label><div style="display:flex;align-items:center;height:36px"><span class="pb" id="pl">B (1,5)</span></div></div>
+<div class="si"><label>连续作业</label><input id="cs" type="number" value="0" min="0" class="ro" readonly></div>
+<div class="si"><label>燃油 O</label><input id="rO" type="number" value="35" min="0"></div>
+<div class="si"><label>淡水 H</label><input id="rH" type="number" value="45" min="0"></div>
+<div class="si"><label>食物 F</label><input id="rF" type="number" value="30" min="0"></div>
+<div class="si"><label>资金 M</label><input id="rM" type="number" value="240" min="0"></div>
+<div class="si"><label>目标物资 Z</label><input id="rZ" type="number" value="100" min="0" class="ro" readonly></div>
+<div class="si"><label>负载 / 120</label><input id="ld" type="text" value="110" class="ro" readonly></div>
+</div>
+<button style="margin-top:10px;padding:6px 16px;font-size:.8rem;border:1px solid #d0d5dd;border-radius:6px;background:#fff;cursor:pointer" onclick="rst()">↺ 重置</button>
+</div>
+
+<div class="card"><h2>🌤 今日天气观测</h2>
+<div class="wg">
+<button class="wb" id="bN" onclick="sw('normal')"><span class="ic">☀️</span>正常天气<div style="font-size:.72rem;color:#888;margin-top:3px">移(2,3,2) 停(1,1,1) 作(5,4,3)</div></button>
+<button class="wb act" id="bT" onclick="sw('thunder')"><span class="ic">⛈</span>雷暴天气<div style="font-size:.72rem;color:#888;margin-top:3px">移(8,4,3) 停(3,3,2) 作(8,6,6)</div></button>
+</div>
+<button class="bd" onclick="decide()">⏎ 观测天气并决策</button>
+</div>
+
+<div class="card" id="rc" style="display:none"><h2>🎯 CP决策结果</h2><div id="ri"></div></div>
+
+<div class="card"><h2>📋 决策记录</h2><div style="max-height:400px;overflow-y:auto">
+<table class="ht"><thead><tr><th>日</th><th>天气</th><th>动作</th><th>位置</th><th>O</th><th>H</th><th>F</th><th>M</th><th>Z</th></tr></thead>
+<tbody id="hb"><tr><td colspan="9" style="color:#999;text-align:center;padding:20px">尚未决策</td></tr></tbody></table></div></div>
+<div class="ft">约束规划引擎 · 值域缩减+约束传播+分支回溯+上界剪枝</div>
+</div>
+
+<script>
+'use strict';
+const MD=30,ML=120;
+const AXY=[[1,5],[10,5],[2,7],[5,3],[8,8],[3,4],[7,6]];
+const NM=['B','E','W1','W2','W3','S1','S2'];
+const WY=[20,15,28],WM=[4,5,3];
+const IIDX=[2,3,4,5,6];
+const DST=(()=>{const n=7,d=Array.from({length:n},()=>Array(n).fill(0));for(let i=0;i<n;i++)for(let j=0;j<n;j++)d[i][j]=Math.abs(AXY[i][0]-AXY[j][0])+Math.abs(AXY[i][1]-AXY[j][1]);return d;})();
+const CS={normal:{MO:2,MH:3,MF:2,PO:1,PH:1,PF:1,WO:5,WH:4,WF:3,pO:2,pH:1,pF:2},thunder:{MO:8,MH:4,MF:3,PO:3,PH:3,PF:2,WO:8,WH:6,WF:6,pO:2,pH:1,pF:2}};
+
+let S={day:1,pt:0,pos:[1,5],O:35,H:45,F:30,M:240,Z:100,cs:0,atE:false,plan:null,ps:0,ptot:0};
+let W='thunder',HIST=[];
+
+function sw(w){W=w;D('bN').classList.toggle('act',w==='normal');D('bT').classList.toggle('act',w==='thunder');}
+function D(id){return document.getElementById(id);}
+function uld(){D('ld').value=S.O+S.H+S.F;}
+function sui(){
+D('dn').value=S.day;D('pl').textContent=(S.pt>=0?NM[S.pt]+' ':'')+'('+S.pos[0]+','+S.pos[1]+')';
+D('rO').value=S.O;D('rH').value=S.H;D('rF').value=S.F;D('rM').value=S.M;D('rZ').value=S.Z;D('cs').value=S.cs;uld();
+}
+function sfu(){S.day=parseInt(D('dn').value)||1;S.O=parseInt(D('rO').value)||0;S.H=parseInt(D('rH').value)||0;S.F=parseInt(D('rF').value)||0;S.M=parseInt(D('rM').value)||0;S.Z=parseInt(D('rZ').value)||0;uld();}
+function rst(){S={day:1,pt:0,pos:[1,5],O:35,H:45,F:30,M:240,Z:100,cs:0,atE:false,plan:null,ps:0,ptot:0};HIST=[];D('hb').innerHTML='<tr><td colspan="9" style="color:#999;text-align:center;padding:20px">尚未决策</td></tr>';D('rc').style.display='none';sui();}
+function fpt(x,y){for(let i=0;i<AXY.length;i++)if(AXY[i][0]===x&&AXY[i][1]===y)return i;return -1;}
+function mt(fr,to){const p=[...fr];if(p[0]<to[0])p[0]++;else if(p[0]>to[0])p[0]--;else if(p[1]<to[1])p[1]++;else if(p[1]>to[1])p[1]--;return p;}
+
+// ========== CP ==========
+function mwp(mc,rem){let b=0;for(let k=1;k<=rem+1;k++){const s=k*mc+(k-1);if(s>rem)break;b=k*mc;const sl=rem-s;if(sl>=1)b=Math.max(b,k*mc+Math.min(mc,sl-1));}return Math.max(b,Math.min(mc,rem));}
+function epc(n,m){const c=[];const u=new Array(n).fill(0);function r(p,rem){if(p===n-1){u[p]=rem;c.push([...u]);return;}for(let i=0;i<=rem;i++){u[p]=i;r(p+1,rem-i);}}r(0,m);return c;}
+
+function sim(pid,m,tt,df,wd,pk,co,O,H,F,M,Z){
+const T=tt+(wd||[]).reduce((a,b)=>a+b,0)+(pk||[]).reduce((a,b)=>a+b,0)+200;
+const cO=new Array(T).fill(0),cH=new Array(T).fill(0),cF=new Array(T).fill(0),zG=new Array(T).fill(0),iS=new Array(T).fill(false);
+const wa=[],ww=[];for(let i=1;i<pid.length;i++){const pt=pid[i];if(pt>=2&&pt<=4){wa.push(i);ww.push(pt-2);}}
+let dy=0;
+for(let k=0;k<=m;k++){
+for(let pd=0;pd<(pk[k]||0);pd++){cO[dy]=co.PO;cH[dy]=co.PH;cF[dy]=co.PF;dy++;}
+const d=df[pid[k]][pid[k+1]];
+for(let dd=0;dd<d;dd++){cO[dy]=co.MO;cH[dy]=co.MH;cF[dy]=co.MF;if(dd===d-1&&(pid[k+1]===5||pid[k+1]===6))iS[dy]=true;dy++;}
+const wk=wa.indexOf(k+1);
+if(wk>=0&&wd&&wd.length>0&&wd[wk]>0){const wmVal=WM[ww[wk]],yld=WY[ww[wk]];let rv=wd[wk];while(rv>0){const ch=Math.min(rv,wmVal);for(let w=0;w<ch;w++){cO[dy]=co.WO;cH[dy]=co.WH;cF[dy]=co.WF;zG[dy]=yld;dy++;}rv-=ch;if(rv>0){cO[dy]=co.PO;cH[dy]=co.PH;cF[dy]=co.PF;dy++;}}}
+}
+const Ta=dy;
+for(let t=0;t<Ta;t++){O-=cO[t];H-=cH[t];F-=cF[t];Z+=zG[t];if(O<0||H<0||F<0)return[false,Z,M];if(O+H+F>ML+1e-9)return[false,Z,M];
+if(iS[t]){let ns=Ta+1;for(let tt=t+1;tt<Ta;tt++){if(iS[tt]){ns=tt;break;}}let nO=0,nH=0,nF=0;for(let tt=t+1;tt<=ns;tt++){if(tt>=Ta)break;nO+=cO[tt];nH+=cH[tt];nF+=cF[tt];}const sp=ML-(O+H+F);const bO=Math.max(0,nO-O),bH=Math.max(0,nH-H),bF=Math.max(0,nF-F);if(bO+bH+bF>sp)return[false,Z,M];if(ns>Ta&&(O+bO<nO||H+bH<nH||F+bF<nF))return[false,Z,M];const cost=bO*co.pO+bH*co.pH+bF*co.pF;if(cost>M)return[false,Z,M];O+=bO;H+=bH;F+=bF;M-=cost;}}
+return[true,Z,M];
+}
+
+function evl(fp,m,tt,pr,df,wd,bZ,bM,bP,bWD,bPS,co,O,H,F,M,Z){
+const ns=m+1;const pc=epc(ns+1,pr);
+for(const c of pc){const ps=c.slice(0,ns);const[ok,Zo,Mo]=sim(fp,m,tt,df,wd,ps,co,O,H,F,M,Z);if(ok&&(Zo>bZ||(Zo===bZ&&Mo>bM))){bZ=Zo;bM=Mo;bP=[...fp];bWD=(wd&&wd.length>0)?[...wd]:[];bPS=[...ps];}}
+return[bZ,bM,bP,bWD,bPS];
+}
+
+function cps(path,tsf,wa,ww,bZ,bM,bP,bWD,bPS,df,co,O,H,F,M,Z,IZ,dp){
+if(dp>20)return[bZ,bM,bP,bWD,bPS];
+const lp=path[path.length-1];
+if(lp!==1){const dE=df[lp][1],rem=MD-tsf;if(rem<dE)return[bZ,bM,bP,bWD,bPS];const mw=mwp(3,rem-dE);if(IZ+mw*28<=bZ&&bZ>-Infinity)return[bZ,bM,bP,bWD,bPS];}
+const dE2=df[lp][1];
+if(tsf+dE2<=MD){const fp=[...path,1],m=fp.length-2;let tt=0;for(let k=0;k<=m;k++)tt+=df[fp[k]][fp[k+1]];const rd=MD-tt,nw=wa.length;
+if(nw===0){[bZ,bM,bP,bWD,bPS]=evl(fp,m,tt,rd,df,[],bZ,bM,bP,bWD,bPS,co,O,H,F,M,Z);}
+else{const mwk=wa.map((_,j)=>mwp(WM[ww[j]],rd));const sz=mwk.map(v=>v+1);const nc=sz.reduce((a,b)=>a*b,1);for(let ci=0;ci<nc;ci++){const wd=new Array(nw).fill(0);let t2=ci;for(let j=nw-1;j>=0;j--){wd[j]=t2%sz[j];t2=Math.floor(t2/sz[j]);}let ts=0;for(let j=0;j<nw;j++){if(wd[j]>0)ts+=wd[j]+Math.max(0,Math.ceil(wd[j]/WM[ww[j]])-1);}if(tt+ts>MD)continue;const pr=MD-tt-ts;[bZ,bM,bP,bWD,bPS]=evl(fp,m,tt,pr,df,wd,bZ,bM,bP,bWD,bPS,co,O,H,F,M,Z);}}}
+for(const np of IIDX){if(np===lp)continue;const d=df[lp][np];if(tsf+d>MD)continue;const dE3=df[np][1];if(tsf+d+dE3>MD)continue;const np2=[...path,np],nt=tsf+d,nwa=[...wa],nww=[...ww];if(np>=2&&np<=4){nwa.push(np2.length-1);nww.push(np-2);}[bZ,bM,bP,bWD,bPS]=cps(np2,nt,nwa,nww,bZ,bM,bP,bWD,bPS,df,co,O,H,F,M,Z,IZ,dp+1);}
+return[bZ,bM,bP,bWD,bPS];
+}
+
+function cpp(pt,el,O,H,F,M,Z,co){let bZ=-Infinity,bM=-Infinity,bP=[pt,1],bWD=[],bPS=[];[bZ,bM,bP,bWD,bPS]=cps([pt],el,[],[],bZ,bM,bP,bWD,bPS,DST,co,O,H,F,M,Z,Z,0);return{ok:bZ>-Infinity,pa:bP,ps:bPS,wk:bWD,Z:bZ,M:bM};}
+
+// ========== 预展开逐日计划 ==========
+function dpl(plan,co){
+const pid=plan.pa,pk=plan.ps,wd=plan.wk;
+const m=pid.length-2;
+const wa=[],ww=[];for(let i=1;i<pid.length;i++){const pt=pid[i];if(pt>=2&&pt<=4){wa.push(i);ww.push(pt-2);}}
+const dp=[];
+for(let k=0;k<=m;k++){
+for(let pd=0;pd<(pk[k]||0);pd++)dp.push({t:'park'});
+const d=DST[pid[k]][pid[k+1]];
+for(let dd=0;dd<d;dd++){const isL=(dd===d-1);const tgt=isL?pid[k+1]:-1;dp.push({t:'move',to:tgt,ar:isL,dest:pid[k+1],isSup:(isL&&(pid[k+1]===5||pid[k+1]===6))});}
+const wk=wa.indexOf(k+1);
+if(wk>=0&&wd&&wd.length>0&&wd[wk]>0){const wmVal=WM[ww[wk]],yld=WY[ww[wk]];let rv=wd[wk];while(rv>0){const ch=Math.min(rv,wmVal);for(let w=0;w<ch;w++)dp.push({t:'work',yld:yld,wm:wmVal,wp:pid[k+1]});rv-=ch;if(rv>0)dp.push({t:'park_r'});}}
+}
+return dp;
+}
+
+// ========== 主决策 ==========
+function shw(cls,act,rsn,nxt){D('rc').style.display='block';D('ri').innerHTML='<div class="rb '+cls+'"><div class="ra">'+act+'</div><div class="rr">'+rsn+'</div>'+(nxt?'<div class="rn">'+nxt+'</div>':'')+'</div>';}
+
+function decide(){
+if(S.atE){alert('已抵达终点E!');return;}
+sfu();const co=CS[W],wn=W==='normal'?'正常':'雷暴';
+
+const nr=!S.plan||S.ps>=S.ptot;
+if(nr){
+const pl=cpp(S.pt>=0?S.pt:0,S.day-1,S.O,S.H,S.F,S.M,S.Z,co);
+if(!pl.ok){shw('ax','⚠ 无可行路径','当前状态下无法在剩余天数内安全抵达E。',null);return;}
+S.plan=pl;S.dp=dpl(pl,co);S.ps=0;S.ptot=S.dp.length;
+}
+
+const dp=S.dp;
+if(S.ps>=dp.length){shw('ax','⚠ 计划耗尽','CP规划已执行完毕但未到达E。','');return;}
+
+const st=dp[S.ps];
+let act,rsn,cls='am',supD='';
+let nO=S.O,nH=S.H,nF=S.F,nM=S.M,nZ=S.Z,nP=[...S.pos],nPt=S.pt,nE=false,nCs=S.cs;
+
+if(st.t==='park'){act='停泊 (海上)';rsn='为腾出载重空间/重置作业计数器';cls='ap';nO-=co.PO;nH-=co.PH;nF-=co.PF;nCs=0;}
+else if(st.t==='park_r'){act='停泊 (重置作业)';rsn='连续作业达上限，停泊1天重置';cls='ap';nO-=co.PO;nH-=co.PH;nF-=co.PF;nCs=0;}
+else if(st.t==='work'){const wn2=NM[st.wp];act='作业 ('+wn2+')';rsn=wn2+' 作业1天，收益 +'+st.yld+' Z ('+(S.cs+1)+'/'+st.wm+')';cls='aw';nO-=co.WO;nH-=co.WH;nF-=co.WF;nZ+=st.yld;nCs=S.cs+1;nPt=st.wp;nP=[...AXY[st.wp]];}
+else if(st.t==='move'){
+// ★ 修复: 先在顶部扣除移动消耗，避免补给案例中重复扣除
+nO-=co.MO;nH-=co.MH;nF-=co.MF;nCs=0;
+const dst=st.dest; // 始终使用 dest（非 -1）
+if(st.ar&&dst===1){act='🏁 抵达E';rsn='安全到达终点交付岛，任务完成！';cls='aa';nE=true;nPt=1;nP=[...AXY[1]];}
+else if(st.ar&&(dst===5||dst===6)){
+const tn=NM[dst];
+// ★ 修复: 补给计算使用当日天气消耗 (co), 而非硬编码雷暴
+let rt=0,rp=0,rw=0;
+for(let si=S.ps+1;si<dp.length;si++){const cs=dp[si];if(cs.t==='move')rt++;else if(cs.t==='park'||cs.t==='park_r')rp++;else if(cs.t==='work')rw++;if(cs.isSup)break;}
+const ndO=rt*co.MO+rp*co.PO+rw*co.WO,ndH=rt*co.MH+rp*co.PH+rw*co.WH,ndF=rt*co.MF+rp*co.PF+rw*co.WF;
+const sp=ML-(nO+nH+nF);const bO=Math.max(0,ndO-nO),bH=Math.max(0,ndH-nH),bF=Math.max(0,ndF-nF);
+if(bO+bH+bF<=sp){const cost=bO*co.pO+bH*co.pH+bF*co.pF;if(cost<=nM){nO+=bO;nH+=bH;nF+=bF;nM-=cost;supD='采购 O='+bO+' H='+bH+' F='+bF+' 花费='+cost;act='补给 '+tn;rsn='在'+tn+'采购以完成剩余航程';cls='as';}}
+if(!supD){act='抵达 '+tn;rsn='到达补给点 '+tn;cls='am';}
+nPt=dst;nP=[...AXY[dst]];
+}else{
+const dn=NM[dst];const dRem=DST[S.pt>=0?S.pt:0][dst]-1;act='移动 → '+dn;rsn='向 '+dn+' 移动 ('+(dRem>0?'还差 '+dRem+' 天':'即将到达')+')';cls='am';
+nP=mt(S.pos,AXY[dst]);nPt=fpt(nP[0],nP[1]);if(nPt<0)nPt=S.pt;
+}
+}
+
+if(nO<0||nH<0||nF<0){shw('ax','⚠ 资源不足','执行动作导致资源为负','');return;}
+
+const nL=nO+nH+nF;
+const nxt='<b>下一日 Day '+(S.day+1)+':</b><br>O='+nO+' H='+nH+' F='+nF+' (负载='+nL+'/'+ML+')<br>M='+nM+' Z='+nZ+' @('+nP[0]+','+nP[1]+') '+(nPt>=0?NM[nPt]:'');
+shw(cls,act,rsn+(supD?'<br>'+supD:''),nxt);
+
+S.O=nO;S.H=nH;S.F=nF;S.M=nM;S.Z=nZ;S.pos=nP;S.pt=nPt;S.cs=nCs;S.day++;S.ps++;S.atE=nE;
+HIST.push({day:S.day-1,weather:wn,action:act,pos:[...nP],O:nO,H:nH,F:nF,M:nM,Z:nZ});rhi();sui();
+}
+
+function rhi(){
+const tb=D('hb');if(HIST.length===0){tb.innerHTML='<tr><td colspan="9" style="color:#999;text-align:center;padding:20px">尚未决策</td></tr>';return;}
+tb.innerHTML=HIST.map((h,i)=>'<tr><td>'+(i+1)+'</td><td class="'+(h.weather==='正常'?'wn':'wt')+'">'+h.weather+'</td><td>'+h.action+'</td><td>('+h.pos[0]+','+h.pos[1]+')</td><td>'+h.O+'</td><td>'+h.H+'</td><td>'+h.F+'</td><td>'+h.M+'</td><td>'+h.Z+'</td></tr>').join('');
+}
+sui();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+

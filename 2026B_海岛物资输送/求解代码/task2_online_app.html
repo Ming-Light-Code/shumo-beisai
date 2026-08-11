@@ -1,0 +1,662 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>任务2 — 在线约束规划决策模型</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.app{max-width:1400px;margin:0 auto;padding:16px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+.header h1{font-size:1.4rem;font-weight:600;color:#f8fafc}
+.header .badge{background:#1e293b;padding:4px 12px;border-radius:6px;font-size:.8rem;color:#94a3b8}
+.main{display:grid;grid-template-columns:minmax(480px,1fr) 380px;gap:16px;align-items:start}
+@media(max-width:900px){.main{grid-template-columns:1fr}}
+
+/* Grid Panel */
+.grid-panel{background:#1e293b;border-radius:10px;padding:16px}
+.grid-title{font-size:.85rem;color:#94a3b8;margin-bottom:10px;display:flex;justify-content:space-between}
+.grid-container{position:relative;width:100%;aspect-ratio:1;max-width:520px;margin:0 auto}
+.grid-bg{display:grid;grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(10,1fr);width:100%;height:100%;border:1px solid #334155;border-radius:2px}
+.grid-bg .cell{border:1px solid #1e293b;background:#0f172a;position:relative}
+.grid-bg .cell:hover{background:#1e3a5f}
+.point-marker{position:absolute;transform:translate(-50%,-50%);z-index:2;font-weight:700;font-size:.7rem;text-align:center;pointer-events:none}
+.point-marker.ship{width:22px;height:22px;background:#f59e0b;border-radius:50%;border:2px solid #fbbf24;box-shadow:0 0 12px rgba(245,158,11,.5);z-index:5;font-size:0;transition:all .3s ease}
+.point-marker.supply{width:20px;height:20px;background:#10b981;border-radius:6px;color:#fff;line-height:20px;font-size:.65rem;border:2px solid #34d399}
+.point-marker.work{width:20px;height:20px;background:#6366f1;border-radius:50%;color:#fff;line-height:20px;font-size:.65rem;border:2px solid #818cf8}
+.point-marker.start{width:20px;height:20px;background:#3b82f6;border-radius:4px;color:#fff;line-height:20px;font-size:.6rem;border:2px solid #60a5fa}
+.point-marker.end{width:22px;height:22px;background:#ef4444;border-radius:4px;color:#fff;line-height:22px;font-size:.6rem;border:2px solid #f87171}
+.trail{position:absolute;z-index:1;pointer-events:none}
+.trail line{stroke:#f59e0b;stroke-width:2;stroke-dasharray:6 3;opacity:.5}
+
+/* Right Panel */
+.right-panel{display:flex;flex-direction:column;gap:12px}
+.card{background:#1e293b;border-radius:10px;padding:14px}
+.card h3{font-size:.8rem;color:#94a3b8;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px}
+.resource-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.resource-row .label{font-size:.75rem;color:#94a3b8;width:20px}
+.resource-row .bar-bg{flex:1;height:6px;background:#334155;border-radius:3px;margin:0 10px;overflow:hidden}
+.resource-row .bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.resource-row .val{font-size:.75rem;width:45px;text-align:right;font-variant-numeric:tabular-nums}
+.bar-fuel{background:#f59e0b}.bar-water{background:#3b82f6}.bar-food{background:#10b981}
+.bar-funds{background:#a78bfa}.bar-ztarget{background:#f472b6}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat-item{background:#0f172a;border-radius:6px;padding:8px;text-align:center}
+.stat-item .stat-val{font-size:1.2rem;font-weight:700;color:#f8fafc}
+.stat-item .stat-label{font-size:.65rem;color:#64748b;margin-top:2px}
+
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+button{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:.8rem;font-weight:500;transition:all .15s}
+button:disabled{opacity:.4;cursor:not-allowed}
+.btn-step{background:#3b82f6;color:#fff}.btn-step:hover:not(:disabled){background:#2563eb}
+.btn-auto{background:#10b981;color:#fff}.btn-auto:hover:not(:disabled){background:#059669}
+.btn-reset{background:#ef4444;color:#fff}.btn-reset:hover:not(:disabled){background:#dc2626}
+.btn-mode{background:#334155;color:#e2e8f0}.btn-mode:hover:not(:disabled){background:#475569}
+.btn-mode.active{background:#6366f1;color:#fff}
+
+.log-list{max-height:200px;overflow-y:auto;font-size:.7rem;font-family:'Cascadia Code',monospace}
+.log-list .log-line{padding:3px 0;border-bottom:1px solid #1e293b;color:#94a3b8}
+.log-list .log-line.decision{color:#f59e0b}
+.log-list .log-line.supply{color:#10b981}
+.log-list .log-line.arrive{color:#f472b6}
+.cp-info{font-size:.7rem;color:#64748b;line-height:1.5}
+.cp-info span{color:#94a3b8;font-weight:600}
+
+.weather-indicator{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600}
+.weather-normal{background:#166534;color:#86efac}
+.weather-thunder{background:#7f1d1d;color:#fca5a5}
+.model-hint{font-size:.65rem;color:#475569;margin-top:8px;line-height:1.5;max-height:60px;overflow:hidden;transition:max-height .3s}
+.model-hint.expanded{max-height:300px}
+.model-toggle{font-size:.65rem;color:#6366f1;cursor:pointer;margin-top:4px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="header">
+<div>
+<h1>任务2 · 在线约束规划决策模型</h1>
+<div class="badge" style="margin-top:4px">S<sub>t</sub> = (pt, O,H,F, M,Z, c, w<sub>t</sub>) &rarr; CP搜索 &rarr; a<sub>t</sub><sup>*</sup> &rarr; S<sub>t+1</sub></div>
+</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<button class="btn-mode active" onclick="setWeatherMode('all_thunder')">全雷暴</button>
+<button class="btn-mode" onclick="setWeatherMode('all_normal')">全正常</button>
+<button class="btn-mode" onclick="setWeatherMode('mixed5')">前5雷暴→正常</button>
+</div>
+</div>
+
+<div class="main">
+<!-- Grid Panel -->
+<div class="grid-panel">
+<div class="grid-title">
+<span>海面网格 10×10 &nbsp;|&nbsp; <span id="dayLabel">准备出发</span></span>
+<span style="color:#f59e0b" id="actionLabel"></span>
+</div>
+<div class="grid-container" id="gridContainer">
+<div class="grid-bg" id="gridBg"></div>
+<svg class="trail" id="trailSvg" style="position:absolute;top:0;left:0;width:100%;height:100%"></svg>
+</div>
+<div class="model-hint" id="modelHint">
+<strong>数学模型：</strong>每日观测天气 w<sub>t</sub> → 从当前状态 S<sub>t</sub> 调用 CP 搜索剩余最优路径 → 执行首个动作 a<sub>t</sub><sup>*</sup> → 状态转移。<br>
+动作空间 A(S<sub>t</sub>) = {↑↓←→, 停泊, 作业, 补给}，受资源/载重(120)/连续作业上限/位置功能四重约束过滤。<br>
+CP 搜索假设「剩余天数天气 ≡ 今日观测」，全雷暴下等价确定性全局最优。
+</div>
+<span class="model-toggle" onclick="toggleModel()">展开/收起 数学模型</span>
+</div>
+
+<!-- Right Panel -->
+<div class="right-panel">
+<div class="card">
+<h3>资源状态</h3>
+<div class="resource-row"><span class="label">O</span><div class="bar-bg"><div class="bar-fill bar-fuel" id="barO" style="width:29%"></div></div><span class="val" id="valO">35/120</span></div>
+<div class="resource-row"><span class="label">H</span><div class="bar-bg"><div class="bar-fill bar-water" id="barH" style="width:37%"></div></div><span class="val" id="valH">45/120</span></div>
+<div class="resource-row"><span class="label">F</span><div class="bar-bg"><div class="bar-fill bar-food" id="barF" style="width:25%"></div></div><span class="val" id="valF">30/120</span></div>
+<div class="resource-row"><span class="label" style="color:#a78bfa">M</span><div class="bar-bg"><div class="bar-fill bar-funds" id="barM" style="width:32%"></div></div><span class="val" id="valM" style="color:#a78bfa">240</span></div>
+<div class="resource-row"><span class="label" style="color:#f472b6">Z</span><div class="bar-bg"><div class="bar-fill bar-ztarget" id="barZ" style="width:10%"></div></div><span class="val" id="valZ" style="color:#f472b6">100</span></div>
+</div>
+
+<div class="card">
+<h3>实时状态</h3>
+<div class="stat-grid">
+<div class="stat-item"><div class="stat-val" id="statDay">0</div><div class="stat-label">当前天数 / 30</div></div>
+<div class="stat-item"><div class="stat-val" id="statPos">B(1,5)</div><div class="stat-label">位置</div></div>
+<div class="stat-item"><div class="stat-val" id="statConsec">0</div><div class="stat-label">连续作业 / 上限</div></div>
+<div class="stat-item"><div class="stat-val" id="statWeather">—</div><div class="stat-label">今日天气</div></div>
+<div class="stat-item"><div class="stat-val" id="statLoad">110</div><div class="stat-label">载重 / 120</div></div>
+<div class="stat-item"><div class="stat-val" id="statCPnodes">—</div><div class="stat-label">CP 探索节点</div></div>
+</div>
+</div>
+
+<div class="btn-row">
+<button class="btn-step" id="btnStep" onclick="stepDay()">▶ 执行当日决策</button>
+<button class="btn-auto" id="btnAuto" onclick="toggleAuto()">⏩ 自动模拟</button>
+<button class="btn-reset" onclick="resetSim()">↺ 重置</button>
+</div>
+
+<div class="card">
+<h3>决策日志</h3>
+<div class="log-list" id="logList">
+<div class="log-line">等待开始...</div>
+</div>
+</div>
+
+<div class="card cp-info" id="cpInfo">
+<h3>CP 规划信息</h3>
+<div>规划路径: <span id="cpPath">—</span></div>
+<div>估计 Z: <span id="cpZ">—</span> &nbsp; 估计 M: <span id="cpM">—</span></div>
+<div>搜索节点: <span id="cpNodes">—</span></div>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+// ===== CONFIGURATION =====
+const ALL_XY = [[1,5],[10,5],[2,7],[5,3],[8,8],[3,4],[7,6]]; // B,E,W1,W2,W3,S1,S2
+const NAMES = ['B','E','W1','W2','W3','S1','S2'];
+const WY = [20,15,28]; // daily yield
+const WM = [4,5,3];    // max consecutive work
+const MAX_DAYS = 30, MAX_LOAD = 120;
+const INIT_O = 35, INIT_H = 45, INIT_F = 30, INIT_M = 240, INIT_Z = 100;
+
+// Consumption tables
+const CONS = {
+  N: {MO:2,MH:3,MF:2,PO:1,PH:1,PF:1,WO:5,WH:4,WF:3,pO:2,pH:1,pF:2},
+  T: {MO:8,MH:4,MF:3,PO:3,PH:3,PF:2,WO:8,WH:6,WF:6,pO:2,pH:1,pF:2}
+};
+
+// Distance matrix
+const DIST = Array.from({length:7}, (_,i) =>
+  Array.from({length:7}, (_,j) => Math.abs(ALL_XY[i][0]-ALL_XY[j][0]) + Math.abs(ALL_XY[i][1]-ALL_XY[j][1]))
+);
+const INTER = [2,3,4,5,6]; // 0-based: W1,W2,W3,S1,S2
+
+// ===== STATE =====
+let state, weatherSeq, dayLog, simRunning, autoTimer, trailPath;
+let weatherMode = 'all_thunder';
+
+function buildWeather(mode) {
+  const seq = [];
+  for (let d=1; d<=MAX_DAYS; d++) {
+    if (mode === 'all_thunder') seq.push('T');
+    else if (mode === 'all_normal') seq.push('N');
+    else if (mode === 'mixed5') seq.push(d <= 5 ? 'T' : 'N');
+  }
+  return seq;
+}
+
+function initState() {
+  return {
+    pt: 0, pos: [...ALL_XY[0]], O: INIT_O, H: INIT_H, F: INIT_F,
+    M: INIT_M, Z: INIT_Z, consec: 0, day: 0,
+    plan: null, planLeg: 0, stepInLeg: 0, parkedInLeg: 0
+  };
+}
+
+// ===== CP SEARCH ENGINE (JavaScript) =====
+function maxWorkWithPark(mc, remaining) {
+  let best = Math.min(mc, remaining);
+  for (let k = 1; k <= remaining + 1; k++) {
+    const stay = k * mc + (k - 1);
+    if (stay > remaining) break;
+    best = Math.max(best, k * mc);
+    const slack = remaining - stay;
+    if (slack >= 1) best = Math.max(best, k * mc + Math.min(mc, slack - 1));
+  }
+  return best;
+}
+
+function enumParkCombs(nSeg, maxTotal) {
+  const combs = [];
+  function rec(pos, remain, cur) {
+    if (pos === nSeg - 1) { cur[pos] = remain; combs.push([...cur]); return; }
+    for (let p = 0; p <= remain; p++) { cur[pos] = p; rec(pos + 1, remain - p, cur); }
+  }
+  rec(0, maxTotal, new Array(nSeg).fill(0));
+  return combs;
+}
+
+function simulate(pid, wd, parkSeg, init, cons) {
+  // pid: path indices (0-based), wd: work days per work point, parkSeg: park days per segment
+  const m = pid.length - 2;
+  // Build consumption arrays
+  const wa = [], ww = [];
+  for (let i = 1; i < pid.length; i++) {
+    if (pid[i] >= 2 && pid[i] <= 4) { wa.push(i); ww.push(pid[i] - 2); }
+  }
+
+  let tt = 0;
+  for (let k = 0; k <= m; k++) tt += DIST[pid[k]][pid[k+1]];
+  const parkSum = parkSeg ? parkSeg.reduce((a,b)=>a+b, 0) : 0;
+  const wdSum = wd ? wd.reduce((a,b)=>a+b, 0) : 0;
+
+  const T = tt + wdSum + parkSum + 100;
+  const cO = new Array(T).fill(0), cH = new Array(T).fill(0), cF = new Array(T).fill(0);
+  const zG = new Array(T).fill(0), isSup = new Array(T).fill(false);
+
+  let day = 0;
+  for (let k = 0; k <= m; k++) {
+    const d = DIST[pid[k]][pid[k+1]];
+    // Park at sea
+    for (let pd = 0; pd < (parkSeg ? parkSeg[k] : 0); pd++) {
+      cO[day] = cons.PO; cH[day] = cons.PH; cF[day] = cons.PF; day++;
+    }
+    // Move
+    for (let dd = 0; dd < d; dd++) {
+      cO[day] = cons.MO; cH[day] = cons.MH; cF[day] = cons.MF; day++;
+      if (dd === d - 1 && (pid[k+1] === 5 || pid[k+1] === 6)) isSup[day-1] = true;
+    }
+    // Work
+    if (wd) {
+      const wk = wa.indexOf(k + 1);
+      if (wk >= 0 && wd[wk] > 0) {
+        const mc = WM[ww[wk]], yld = WY[ww[wk]];
+        let rem = wd[wk];
+        while (rem > 0) {
+          const chunk = Math.min(rem, mc);
+          for (let w = 0; w < chunk; w++) {
+            cO[day] = cons.WO; cH[day] = cons.WH; cF[day] = cons.WF; zG[day] = yld; day++;
+          }
+          rem -= chunk;
+          if (rem > 0) { cO[day] = cons.PO; cH[day] = cons.PH; cF[day] = cons.PF; day++; }
+        }
+      }
+    }
+  }
+  const T_act = day;
+
+  let O=init.O, H=init.H, F=init.F, M=init.M, Z=init.Z;
+  for (let t = 0; t < T_act; t++) {
+    O -= cO[t]; H -= cH[t]; F -= cF[t]; Z += zG[t];
+    if (O < 0 || H < 0 || F < 0) return {ok:false};
+    if (O+H+F > MAX_LOAD + 1e-9) return {ok:false};
+    if (isSup[t]) {
+      let ns = T_act;
+      for (let tt = t+1; tt < T_act; tt++) { if (isSup[tt]) { ns = tt; break; } }
+      let nO=0, nH=0, nF=0;
+      for (let tt = t+1; tt <= ns; tt++) {
+        if (tt >= T_act) break;
+        nO += cO[tt]; nH += cH[tt]; nF += cF[tt];
+      }
+      const sp = MAX_LOAD - (O+H+F);
+      const bO = Math.max(0, nO - O), bH = Math.max(0, nH - H), bF = Math.max(0, nF - F);
+      if (bO+bH+bF > sp) return {ok:false};
+      if (ns >= T_act && (O+bO < nO || H+bH < nH || F+bF < nF)) return {ok:false};
+      const cost = bO*cons.pO + bH*cons.pH + bF*cons.pF;
+      if (cost > M) return {ok:false};
+      O += bO; H += bH; F += bF; M -= cost;
+    }
+  }
+  return {ok:true, Z, M};
+}
+
+function cpSearch(path, tsf, wa, ww, best, cons, nodes) {
+  nodes.count++;
+  const lp = path[path.length-1];
+
+  // Upper-bound pruning
+  if (lp !== 1) {
+    const dE = DIST[lp][1];
+    const rem = MAX_DAYS - tsf;
+    if (rem < dE) return;
+    const ub = INIT_Z + maxWorkWithPark(3, rem - dE) * 28;
+    if (ub <= best.Z && best.Z > -Infinity) return;
+  }
+
+  // Evaluate leaf
+  const dE = DIST[lp][1];
+  if (tsf + dE <= MAX_DAYS) {
+    const fp = [...path, 1]; // append E (index 1)
+    const m = fp.length - 2;
+    let tt = 0;
+    for (let k = 0; k <= m; k++) tt += DIST[fp[k]][fp[k+1]];
+    const remDays = MAX_DAYS - tt;
+
+    if (wa.length === 0) {
+      const nSeg = m + 1;
+      const combs = enumParkCombs(nSeg + 1, remDays);
+      for (const ps of combs) {
+        const psTrim = ps.slice(0, nSeg);
+        const r = simulate(fp, [], psTrim, {O:INIT_O,H:INIT_H,F:INIT_F,M:INIT_M,Z:INIT_Z}, cons);
+        if (r.ok && (r.Z > best.Z || (r.Z === best.Z && r.M > best.M))) {
+          best.Z = r.Z; best.M = r.M; best.path = [...fp]; best.wd = []; best.ps = [...psTrim];
+        }
+      }
+    } else {
+      const nw = wa.length;
+      const maxWk = wa.map((_,j) => maxWorkWithPark(WM[ww[j]], remDays));
+      const sz = maxWk.map(x => x + 1);
+      const nc = sz.reduce((a,b) => a*b, 1);
+      for (let ci = 0; ci < nc; ci++) {
+        const wd = new Array(nw).fill(0);
+        let t2 = ci;
+        for (let j = nw-1; j >= 0; j--) { wd[j] = t2 % sz[j]; t2 = Math.floor(t2 / sz[j]); }
+        let totalStay = 0;
+        for (let j = 0; j < nw; j++) {
+          if (wd[j] > 0) totalStay += wd[j] + Math.max(0, Math.ceil(wd[j]/WM[ww[j]]) - 1);
+        }
+        if (tt + totalStay > MAX_DAYS) continue;
+        const parkRem = MAX_DAYS - tt - totalStay;
+        const nSeg = m + 1;
+        const combs = enumParkCombs(nSeg, parkRem);
+        for (const ps of combs) {
+          if (tt + totalStay + ps.reduce((a,b)=>a+b,0) > MAX_DAYS) continue;
+          const r = simulate(fp, wd, ps, {O:INIT_O,H:INIT_H,F:INIT_F,M:INIT_M,Z:INIT_Z}, cons);
+          if (r.ok && (r.Z > best.Z || (r.Z === best.Z && r.M > best.M))) {
+            best.Z = r.Z; best.M = r.M; best.path = [...fp]; best.wd = [...wd]; best.ps = [...ps];
+          }
+        }
+      }
+    }
+  }
+
+  // Branch
+  for (const np of INTER) {
+    if (np === lp) continue;
+    const d = DIST[lp][np];
+    if (tsf + d > MAX_DAYS) continue;
+    const dE2 = DIST[np][1];
+    if (tsf + d + dE2 > MAX_DAYS) continue;
+    const nwa = [...wa], nww = [...ww];
+    if (np >= 2 && np <= 4) { nwa.push(path.length + 1); nww.push(np - 2); }
+    cpSearch([...path, np], tsf + d, nwa, nww, best, cons, nodes);
+  }
+}
+
+function cpPlanOnline(curPt, elapsed, cons) {
+  const init = {O:state.O, H:state.H, F:state.F, M:state.M, Z:state.Z};
+  // Use current state's Z for upper bound (not INIT_Z, since Z may have grown)
+  // But our cpSearch uses INIT_Z, so we need to handle this
+  // For simplicity in Task 2 all-thunderstorm, Z always = 100 (no work possible)
+  const best = {Z:-Infinity, M:-Infinity, path:[curPt,1], wd:[], ps:[]};
+  const nodes = {count:0};
+  cpSearch([curPt], elapsed, [], [], best, cons, nodes);
+  return {
+    feasible: best.Z > -Infinity,
+    path: best.path, parks: best.ps, works: best.wd, nodes: nodes.count,
+    estZ: best.Z, estM: best.M
+  };
+}
+
+// ===== DAILY DECISION LOOP =====
+function stepDay() {
+  if (state.day >= MAX_DAYS || state.pt === 1) {
+    if (state.pt === 1) addLog('已在终点 E，模拟结束', 'arrive');
+    return;
+  }
+
+  state.day++;
+  const w = weatherSeq[state.day - 1];
+  const cons = CONS[w];
+  const wname = w === 'T' ? '雷暴' : '正常';
+
+  let action = '', detail = '';
+
+  // Replan if needed
+  if (!state.plan || (state.plan && state.planLeg >= state.plan.path.length - 1)) {
+    const elapsed = state.day - 1;
+    state.plan = cpPlanOnline(state.pt, elapsed, cons);
+    state.planLeg = 0;
+    state.stepInLeg = 0;
+    state.parkedInLeg = 0;
+
+    if (!state.plan.feasible) {
+      addLog(`Day ${state.day}: 无可达方案，模拟终止`, '');
+      updateUI('NO FEASIBLE');
+      return;
+    }
+    addLog(`CP重规划: ${state.plan.path.map(i=>NAMES[i]).join('→')} | 搜索${state.plan.nodes}节点 | 估Z=${state.plan.estZ} M=${state.plan.estM}`, 'decision');
+    updateCPInfo();
+  }
+
+  const plan = state.plan;
+  const nextPt = plan.path[state.planLeg + 1];
+
+  // Decision logic
+  if (plan.parks && state.planLeg < plan.parks.length && state.parkedInLeg < plan.parks[state.planLeg]) {
+    action = '停泊 (海上)';
+    state.O -= cons.PO; state.H -= cons.PH; state.F -= cons.PF;
+    state.consec = 0;
+    state.parkedInLeg++;
+  } else if (state.stepInLeg < DIST[state.pt][nextPt]) {
+    state.O -= cons.MO; state.H -= cons.MH; state.F -= cons.MF;
+    state.consec = 0;
+    state.stepInLeg++;
+
+    const fr = ALL_XY[state.pt], to = ALL_XY[nextPt];
+    const dx = to[0] - fr[0], dy = to[1] - fr[1];
+    const stepsX = Math.abs(dx), stepsY = Math.abs(dy);
+    const step = state.stepInLeg;
+    const dTot = stepsX + stepsY;
+    if (step <= stepsX) {
+      state.pos[0] = fr[0] + Math.sign(dx) * step;
+      state.pos[1] = fr[1];
+    } else {
+      state.pos[0] = to[0];
+      state.pos[1] = fr[1] + Math.sign(dy) * (step - stepsX);
+    }
+    action = `移动 → (${state.pos[0]},${state.pos[1]})`;
+
+    if (state.stepInLeg >= dTot) {
+      state.pt = nextPt;
+      state.pos = [...ALL_XY[nextPt]];
+      state.stepInLeg = 0;
+      state.parkedInLeg = 0;
+
+      if (state.pt === 5 || state.pt === 6) {
+        // Supply
+        let remT=0, remP=0;
+        for (let k=state.planLeg; k<plan.path.length-2; k++) {
+          remT += DIST[plan.path[k+1]][plan.path[k+2]];
+          if (k+2 < (plan.parks?plan.parks.length:0)) remP += plan.parks[k+1];
+        }
+        const needO = remT*cons.MO + remP*cons.PO;
+        const needH = remT*cons.MH + remP*cons.PH;
+        const needF = remT*cons.MF + remP*cons.PF;
+        const sp = MAX_LOAD - (state.O+state.H+state.F);
+        const bO=Math.max(0,needO-state.O), bH=Math.max(0,needH-state.H), bF=Math.max(0,needF-state.F);
+        if (bO+bH+bF <= sp) {
+          const cost = bO*cons.pO + bH*cons.pH + bF*cons.pF;
+          if (cost <= state.M) {
+            state.O += bO; state.H += bH; state.F += bF; state.M -= cost;
+            action = `补给 @${NAMES[state.pt]}`;
+            detail = `+O${Math.round(bO)} +H${Math.round(bH)} +F${Math.round(bF)} 花费${Math.round(cost)}`;
+            addLog(`Day ${state.day}: ${action} | ${detail} | 剩余M=${Math.round(state.M)}`, 'supply');
+          }
+        }
+      } else if (state.pt === 1) {
+        action = '抵达 E！';
+        addLog(`Day ${state.day}: ★ 抵达终点 E！Z=${state.Z} M=${Math.round(state.M)}`, 'arrive');
+      }
+      state.planLeg++;
+    }
+  }
+
+  // Check feasibility
+  if (state.O < -1 || state.H < -1 || state.F < -1) {
+    addLog(`Day ${state.day}: ⚠ 资源耗尽！`, '');
+  }
+
+  if (!detail) addLog(`Day ${state.day}: ${action} | ${wname} | O=${Math.round(state.O)} H=${Math.round(state.H)} F=${Math.round(state.F)} Z=${state.Z}`, '');
+
+  if (state.pt === 1 && !detail) {
+    addLog(`Day ${state.day}: ★ 抵达终点 E！Z=${state.Z} M=${Math.round(state.M)}`, 'arrive');
+  }
+
+  // Push trail point
+  trailPath.push([...state.pos]);
+  updateUI(action);
+}
+
+function toggleAuto() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; document.getElementById('btnAuto').textContent = '⏩ 自动模拟'; return; }
+  document.getElementById('btnAuto').textContent = '⏸ 停止';
+  autoTimer = setInterval(() => {
+    if (state.day >= MAX_DAYS || state.pt === 1) { toggleAuto(); return; }
+    stepDay();
+  }, 600);
+}
+
+function resetSim() {
+  if (autoTimer) toggleAuto();
+  state = initState();
+  trailPath = [[...ALL_XY[0]]];
+  dayLog = [];
+  document.getElementById('logList').innerHTML = '<div class="log-line">已重置，等待开始...</div>';
+  document.getElementById('cpPath').textContent = '—';
+  document.getElementById('cpZ').textContent = '—'; document.getElementById('cpM').textContent = '—';
+  document.getElementById('cpNodes').textContent = '—';
+  updateUI('准备出发');
+  renderAll();
+}
+
+function setWeatherMode(mode) {
+  weatherMode = mode;
+  weatherSeq = buildWeather(mode);
+  document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.btn-mode').forEach(b => {
+    const m = b.textContent === '全雷暴' ? 'all_thunder' : b.textContent === '全正常' ? 'all_normal' : 'mixed5';
+    if (m === mode) b.classList.add('active');
+  });
+  resetSim();
+}
+
+// ===== UI UPDATES =====
+function updateUI(action) {
+  document.getElementById('statDay').textContent = state.day;
+  document.getElementById('statPos').textContent = `${NAMES[state.pt]}(${state.pos[0]},${state.pos[1]})`;
+  document.getElementById('statConsec').textContent = `${state.consec} / ${state.pt>=2&&state.pt<=4?WM[state.pt-2]:'—'}`;
+  const w = weatherSeq[Math.min(state.day-1, MAX_DAYS-1)] || '—';
+  const wname = w === 'T' ? '雷暴' : w === 'N' ? '正常' : '—';
+  document.getElementById('statWeather').textContent = state.day > 0 ? wname : '—';
+  document.getElementById('statWeather').className = w === 'T' ? 'weather-thunder' : w === 'N' ? 'weather-normal' : '';
+  document.getElementById('statLoad').textContent = `${Math.round(state.O+state.H+state.F)} / ${MAX_LOAD}`;
+  if (action) document.getElementById('actionLabel').textContent = action;
+
+  document.getElementById('dayLabel').textContent = state.day > 0 ? `第 ${state.day} 天` : '准备出发';
+
+  // Resource bars
+  document.getElementById('barO').style.width = `${(state.O/MAX_LOAD*100).toFixed(1)}%`;
+  document.getElementById('valO').textContent = `${Math.round(state.O)}`;
+  document.getElementById('barH').style.width = `${(state.H/MAX_LOAD*100).toFixed(1)}%`;
+  document.getElementById('valH').textContent = `${Math.round(state.H)}`;
+  document.getElementById('barF').style.width = `${(state.F/MAX_LOAD*100).toFixed(1)}%`;
+  document.getElementById('valF').textContent = `${Math.round(state.F)}`;
+  document.getElementById('barM').style.width = `${(Math.max(0,state.M)/INIT_M*100).toFixed(1)}%`;
+  document.getElementById('valM').textContent = `${Math.round(state.M)}`;
+  document.getElementById('barZ').style.width = `${(state.Z/500*100).toFixed(1)}%`;
+  document.getElementById('valZ').textContent = `${state.Z}`;
+
+  // Buttons
+  document.getElementById('btnStep').disabled = (state.day >= MAX_DAYS || state.pt === 1);
+
+  renderTrail();
+  renderShip();
+}
+
+function updateCPInfo() {
+  const p = state.plan;
+  if (!p) return;
+  document.getElementById('cpPath').textContent = p.path.map(i=>NAMES[i]).join(' → ');
+  document.getElementById('cpZ').textContent = p.estZ;
+  document.getElementById('cpM').textContent = p.estM;
+  document.getElementById('cpNodes').textContent = p.nodes;
+  document.getElementById('statCPnodes').textContent = p.nodes;
+}
+
+function addLog(msg, cls) {
+  const div = document.createElement('div');
+  div.className = 'log-line' + (cls ? ' ' + cls : '');
+  div.textContent = msg;
+  const list = document.getElementById('logList');
+  list.appendChild(div);
+  list.scrollTop = list.scrollHeight;
+}
+
+// ===== RENDERING =====
+function renderAll() {
+  const container = document.getElementById('gridContainer');
+  const size = container.clientWidth;
+  const cellSize = size / 10;
+
+  // Build grid
+  const gridBg = document.getElementById('gridBg');
+  gridBg.innerHTML = '';
+  for (let r = 0; r < 10; r++) {
+    for (let c = 0; c < 10; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.x = c+1; cell.dataset.y = 10-r;
+      cell.title = `(${c+1},${10-r})`;
+      gridBg.appendChild(cell);
+    }
+  }
+
+  // Point markers
+  const markers = [
+    {idx:0,cls:'start',label:'B'}, {idx:1,cls:'end',label:'E'},
+    {idx:2,cls:'work',label:'W1'}, {idx:3,cls:'work',label:'W2'},
+    {idx:4,cls:'work',label:'W3'}, {idx:5,cls:'supply',label:'S1'},
+    {idx:6,cls:'supply',label:'S2'}
+  ];
+
+  // Remove old point markers (non-ship)
+  container.querySelectorAll('.point-marker:not(.ship)').forEach(el => el.remove());
+
+  for (const m of markers) {
+    const div = document.createElement('div');
+    div.className = `point-marker ${m.cls}`;
+    div.textContent = m.label;
+    const [x, y] = ALL_XY[m.idx];
+    div.style.left = `${(x / 10 * 100).toFixed(1)}%`;
+    div.style.top = `${((11 - y) / 10 * 100).toFixed(1)}%`;
+    container.appendChild(div);
+  }
+
+  // Ship marker
+  let ship = container.querySelector('.point-marker.ship');
+  if (!ship) {
+    ship = document.createElement('div');
+    ship.className = 'point-marker ship';
+    container.appendChild(ship);
+  }
+  renderShip();
+  renderTrail();
+}
+
+function renderShip() {
+  const container = document.getElementById('gridContainer');
+  const ship = container.querySelector('.point-marker.ship');
+  if (!ship) return;
+  ship.style.left = `${(state.pos[0] / 10 * 100).toFixed(1)}%`;
+  ship.style.top = `${((11 - state.pos[1]) / 10 * 100).toFixed(1)}%`;
+}
+
+function renderTrail() {
+  const svg = document.getElementById('trailSvg');
+  if (trailPath.length < 2) { svg.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 1; i < trailPath.length; i++) {
+    const [x1, y1] = trailPath[i-1], [x2, y2] = trailPath[i];
+    const px1 = (x1/10*100).toFixed(1), py1 = ((11-y1)/10*100).toFixed(1);
+    const px2 = (x2/10*100).toFixed(1), py2 = ((11-y2)/10*100).toFixed(1);
+    html += `<line x1="${px1}%" y1="${py1}%" x2="${px2}%" y2="${py2}%" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 2" opacity="0.4"/>`;
+  }
+  svg.innerHTML = html;
+}
+
+function toggleModel() {
+  document.getElementById('modelHint').classList.toggle('expanded');
+}
+
+// ===== INIT =====
+weatherSeq = buildWeather(weatherMode);
+state = initState();
+trailPath = [[...ALL_XY[0]]];
+
+window.addEventListener('resize', renderAll);
+renderAll();
+updateUI('准备出发');
+</script>
+</body>
+</html>

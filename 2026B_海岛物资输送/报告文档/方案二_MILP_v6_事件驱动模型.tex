@@ -1,0 +1,280 @@
+%!TEX program = xelatex
+\documentclass[12pt,a4paper]{ctexart}
+
+\usepackage{geometry}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs,tabularx,multirow}
+\usepackage{float,enumitem,xcolor}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{定义}[section]
+\newtheorem{theorem}{定理}[section]
+\newtheorem{lemma}{引理}[section]
+\newtheorem{proposition}{命题}[section]
+\newtheorem{corollary}{推论}[section]
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\set}[1]{\{#1\}}
+\newcommand{\abs}[1]{|#1|}
+\newcommand{\VEC}[1]{\boldsymbol{#1}}
+\newcommand{\ind}[1]{\mathbf{1}_{[#1]}}
+
+\title{\textbf{方案二：基于混合整数线性规划（MILP v6）\\的事件驱动模型}}
+\author{数学建模备赛}
+\date{2026年7月19日}
+
+\begin{document}
+\maketitle
+
+% ==================== 问题分析 ====================
+\section{问题分析}
+
+在 $10\times 10$ 的网格海域中，船舶从起始岛 $B(1,5)$ 出发，须在 $30$ 天内抵达终点交付岛 $E(10,5)$。海域中有 $5$ 个特殊功能点：
+
+\begin{table}[H]
+  \centering
+  \caption{特殊功能点信息}
+  \begin{tabular}{cccc}
+    \toprule
+    编号 & 名称 & 坐标 & 功能 \\
+    \midrule
+    3 & $W_1$ & $(2,7)$ & 作业点，收益 $20$/天，最多连续 $4$ 天 \\
+    4 & $W_2$ & $(5,3)$ & 作业点，收益 $15$/天，最多连续 $5$ 天 \\
+    5 & $W_3$ & $(8,8)$ & 作业点，收益 $28$/天，最多连续 $3$ 天 \\
+    6 & $S_1$ & $(3,4)$ & 补给平台，可采购资源 \\
+    7 & $S_2$ & $(7,6)$ & 补给平台，可采购资源 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{itemize}
+  \item 初始资源：燃油 $O_0=35$，淡水 $H_0=45$，食物 $F_0=30$，资金 $M_0=240$，目标物资 $Z_0=100$，载重上限 $L=120$
+  \item 消耗规则：移动 $(O,H,F)=(2,3,2)$/格，工作 $(5,4,3)$/天，停泊 $(1,1,1)$/天
+  \item 采购价格：$p_O=2$, $p_H=1$, $p_F=2$
+  \item 优化目标（字典序）：$\max Z$，次 $\max M$
+\end{itemize}
+
+\textbf{建模动机}。方案一通过全枚举+贪婪模拟回避了数学规划的建模复杂性，但工作天数组合数随停泊段数增长。将工作天数决策与采购决策统一建模为 MILP 的优势在于：(1) 工作天数 $(w_{1j},b_j,w_{2j})$ 和采购量作为整数/连续变量统一优化，无需逐组合枚举；(2) 两阶段字典序优化（先 $\max Z$，再固定 $Z$ 后 $\max M$）由两次 \texttt{intlinprog} 调用自然实现；(3) MILP 分支定界框架在理论上提供全局最优性保证。
+
+\textbf{停泊-再作业策略的 MILP 建模}。v6 版本的核心创新在于将每个作业点访问的决策从单一整数 $w_j$ 扩展为三元组 $(w_{1j}, b_j, w_{2j})$，其中 $b_j\in\{0,1\}$ 指示是否在第一次作业后插入 1 天停泊。约束 $w_{2j}\le b_j\cdot WM_j$（通过 big-M 线性化）确保第二段作业仅在停泊后有效。
+
+% ==================== 模型构建与论证 ====================
+\section{模型构建与论证}
+
+\subsection{事件驱动压缩}
+
+\begin{proposition}[事件驱动压缩的有效性]\label{prop:event-compress}
+  在任意两个相邻补给站之间，资源只消耗不补充，存量单调非增。段末非负当且仅当段内逐日非负。因此无需按日展开全部变量，仅需按停靠段建模转移方程，将变量数从 $O(T)$ 压缩至 $O(m)$（$m$ 为中间停靠点数）。
+\end{proposition}
+
+\subsection{符号约定}
+
+设路径骨架 $\mathcal{P}=[p_0,p_1,\dots,p_{m+1}]$ 已由外层枚举给定（$p_0=B$, $p_{m+1}=E$），其中 $p_i$（$i=1,\dots,m+1$）可能是作业点（$W_1,W_2,W_3$）或补给站（$S_1,S_2$）。
+
+\begin{itemize}
+  \item $d_i$：第 $i$ 段移动的曼哈顿距离，$i=1,\dots,m+1$
+  \item $n_w$：路径中作业停靠点数量；$n_s$：补给停靠点数量
+  \item $CM=(2,3,2)$, $CW=(5,4,3)$, $CS=(1,1,1)$：移动、作业、停泊的每格/每天消耗向量
+  \item $WY_j$：第 $j$ 个作业点的单日收益（$j=1,2,3$ 对应 $20,15,28$）
+  \item $WM_j$：第 $j$ 个作业点的单次最大连续天数（$j=1,2,3$ 对应 $4,5,3$）
+\end{itemize}
+
+\subsection{决策变量}
+
+\begin{table}[H]
+  \centering
+  \caption{MILP 决策变量一览}
+  \begin{tabular}{cclc}
+    \toprule
+    变量 & 类型 & 含义 & 范围 \\
+    \midrule
+    $w_{1j}$ & 整数 & 第 $j$ 个作业点访问的第一段作业天数 & $[0,WM_j]$ \\
+    $b_j$    & 0--1 整数 & 第 $j$ 个作业点访问后是否插入停泊日 & $\{0,1\}$ \\
+    $w_{2j}$ & 整数 & 第 $j$ 个作业点访问的第二段作业天数 & $[0,WM_j]$ \\
+    $buy^O_k,buy^H_k,buy^F_k$ & 整数 & 第 $k$ 个补给站的采购量 & $\ge 0$ \\
+    $O_i,H_i,F_i,M_i$ & 连续 & 离开第 $i$ 个停靠点后的资源状态 & $\ge 0$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+变量总数：$n_{\text{vars}} = 3n_w + 3n_s + 4(m+2)$。整数变量：$1:(3n_w+3n_s)$。
+
+\subsection{段间转移方程}
+
+对停靠段 $i=1,\dots,m+1$，引入等式约束：
+
+\begin{equation}\label{eq:milp-transfer}
+  \begin{aligned}
+    O_i &= O_{i-1} - d_i\cdot CM^O - w_{1i}\cdot CW^O - b_i\cdot CS^O - w_{2i}\cdot CW^O + buy^O_i \\
+    H_i &= H_{i-1} - d_i\cdot CM^H - w_{1i}\cdot CW^H - b_i\cdot CS^H - w_{2i}\cdot CW^H + buy^H_i \\
+    F_i &= F_{i-1} - d_i\cdot CM^F - w_{1i}\cdot CW^F - b_i\cdot CS^F - w_{2i}\cdot CW^F + buy^F_i \\
+    M_i &= M_{i-1} - (2\cdot buy^O_i + 1\cdot buy^H_i + 2\cdot buy^F_i)
+  \end{aligned}
+\end{equation}
+
+其中 $w_{1i},b_i,w_{2i}$ 仅在段 $i$ 的停靠点为作业点时非零，$buy$ 项仅在停靠点为补给站时非零。这种"条件性"通过变量索引映射实现——非对应类型的段上，对应变量不在约束矩阵中出现。
+
+\subsection{约束条件}
+
+\begin{enumerate}
+  \item \textbf{资源非负}：$O_i,H_i,F_i,M_i\ge 0$, $i=1..m+1$
+  \item \textbf{载重上限}：$O_i+H_i+F_i\le 120$, $i=0..m+1$
+  \item \textbf{总天数限制}：
+    \begin{equation}
+      \sum_{i=1}^{m+1} d_i + \sum_{j=1}^{n_w} (w_{1j}+b_j+w_{2j}) \le 30
+    \end{equation}
+  \item \textbf{单次作业上限}：$w_{1j}\le WM_j$, $w_{2j}\le WM_j$, $j=1..n_w$
+  \item \textbf{停泊-再作业约束}：$w_{2j}\le b_j\cdot WM_j$。此为非线性约束（二元变量与整数的乘积），通过 big-M 线性化：
+    \begin{equation}
+      w_{2j} - WM_j\cdot b_j \le 0,\quad j=1..n_w
+    \end{equation}
+    $b_j$ 的上界（$b_j\le 1$）直接通过变量上界 $\text{ub}(b_j)=1$ 实现，无需额外不等式。
+  \item \textbf{补给站到达前非负}（仅补给停靠段）：保障驶向补给站的移动途中资源不耗尽。
+    \begin{equation}
+      O_{i-1}\ge d_i\cdot CM^O,\quad H_{i-1}\ge d_i\cdot CM^H,\quad F_{i-1}\ge d_i\cdot CM^F
+    \end{equation}
+  \item \textbf{初始条件}：$O_0=35, H_0=45, F_0=30, M_0=240$（同时通过 $\text{lb}=\text{ub}$ 固定）。
+\end{enumerate}
+
+\subsection{两阶段目标函数}
+
+\textbf{阶段 1——最大化 $Z$}：
+\begin{equation}\label{eq:milp-stage1}
+  \max\; Z = 100 + \sum_{j=1}^{n_w} (w_{1j}+w_{2j})\cdot WY_j
+\end{equation}
+
+\textbf{阶段 2——最大化 $M$（固定 $Z=Z_{\max}$）}：设阶段 1 求得最优 $Z=Z_{\max}$，添加约束：
+\begin{equation}
+  \sum_{j=1}^{n_w} (w_{1j}+w_{2j})\cdot WY_j = Z_{\max}-100
+\end{equation}
+然后求解：
+\begin{equation}\label{eq:milp-stage2}
+  \max\; M_{m+1}
+\end{equation}
+
+两阶段分别调用 \texttt{intlinprog}。阶段 2 中 $Z$ 约束的双边等式（$=\;Z_{\max}-100$）由两个不等式（$\ge$ 和 $\le$）等价实现。
+
+\subsection{变量索引映射}
+
+构造 MILP 约束矩阵时，采用前缀偏移（offset）方案组织变量：
+
+\begin{table}[H]
+  \centering
+  \caption{变量索引映射表}
+  \begin{tabular}{ccc}
+    \toprule
+    变量组 & 数量 & 起始索引 \\
+    \midrule
+    $w_{11}\dots w_{1n_w}$ & $n_w$   & $\text{off}_{w1}+1$ \\
+    $b_1\dots b_{n_w}$     & $n_w$   & $\text{off}_b+1$ \\
+    $w_{21}\dots w_{2n_w}$ & $n_w$   & $\text{off}_{w2}+1$ \\
+    $buy^O_1\dots buy^O_{n_s}$ & $n_s$ & $\text{off}_{bO}+1$ \\
+    $buy^H_1\dots buy^H_{n_s}$ & $n_s$ & $\text{off}_{bH}+1$ \\
+    $buy^F_1\dots buy^F_{n_s}$ & $n_s$ & $\text{off}_{bF}+1$ \\
+    $O_0\dots O_{m+1}$     & $m+2$  & $\text{off}_O+1$（连续） \\
+    $H_0\dots H_{m+1}$     & $m+2$  & $\text{off}_H+1$（连续） \\
+    $F_0\dots F_{m+1}$     & $m+2$  & $\text{off}_F+1$（连续） \\
+    $M_0\dots M_{m+1}$     & $m+2$  & $\text{off}_M+1$（连续） \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{搭车优化策略}
+
+外层骨架枚举与 MILP 求解之间集成了五项优化：
+
+\begin{table}[H]
+  \centering
+  \caption{优化策略汇总}
+  \begin{tabular}{cll}
+    \toprule
+    编号 & 策略 & 机制 \\
+    \midrule
+    O1 & 贪婪预过滤 & $w=0$ 时快速判定骨架是否结构不可行，过滤后再建 MILP \\
+    O2 & $n_w=0$ 贪婪直解 & 无作业点时等价于纯运输，贪婪模拟即得最优，跳过 MILP \\
+    O3 & 理论 UB 裁剪 & 计算最大可能 $Z$（全部可用天 $\times \max WY$），若 $\le Z^{\text{best}}$ 则跳过 \\
+    O4 & seq\_len 递增排序 & 短序列优先，尽早建立高 $Z^{\text{best}}$ 增强 O3 效果 \\
+    O5 & 贪婪达 UB→跳阶段 1 & 贪婪模拟已达理论 UB 时，直接固定 $Z$ 进入阶段 2 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ==================== 数值计算 ====================
+\section{数值计算}
+
+\subsection{计算配置}
+
+\begin{itemize}
+  \item 运行环境：MATLAB，需 Optimization Toolbox（提供 \texttt{intlinprog}）
+  \item 骨架枚举总量：$\sum_{k=0}^8 5^k = 488{,}281$
+  \item 典型问题规模：$15\sim 50$ 变量，$3\sim 15$ 整数变量
+  \item 预计总耗时：$3\sim 8$ 分钟
+\end{itemize}
+
+\subsection{运行统计（典型输出）}
+
+\begin{table}[H]
+  \centering
+  \caption{求解过程统计}
+  \begin{tabular}{lr}
+    \toprule
+    指标 & 数值 \\
+    \midrule
+    扫描骨架数      & $488{,}281$ \\
+    UB 裁剪跳过    & 约 $95\%$ \\
+    预过滤跳过      & 少量 \\
+    阶段 1 调用    & 数百次 \\
+    阶段 2 调用    & 数百次 \\
+    阶段 1 节省（O5）& 部分 \\
+    可行解数        & 持续累积 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{关键实现细节}
+
+\begin{itemize}
+  \item 约束矩阵通过共享函数 \texttt{build\_milp\_sw} 构建，避免阶段 1 和阶段 2 的代码重复。
+  \item \texttt{intlinprog} 配置为 $\text{Display}=\text{'off'}$ 以抑制迭代输出，仅在主函数输出进度。
+  \item 阶段 2 固定 $Z$ 使用双边不等式约束（$\ge$ 和 $\le$），由两个额外行实现。
+\end{itemize}
+
+% ==================== 结果分析 ====================
+\section{结果分析}
+
+\subsection{最优解}
+
+MILP v6 方法获得的最优解为：
+\begin{itemize}
+  \item $\mathbf{Z=328}$, $\mathbf{M=21}$
+  \item 最优路径：$B\to W_1\to S_2\to W_3\to S_2\to E$
+  \item $W_1$：第一段 $w_1=3$ 天，停泊 $b=0$，第二段 $w_2=0$
+  \item $W_3$：第一段 $w_1=3$ 天，停泊 $b=1$，第二段 $w_2=3$ 天（满足 $w_2\le b\cdot 3$）
+\end{itemize}
+
+MILP 分支定界框架为所得解提供了数学上的最优性保证。
+
+\subsection{MILP 方法的特点}
+
+\begin{enumerate}
+  \item \textbf{数学规划的严谨性}。MILP 提供的解不仅是"找到的"，更是"经分支定界证明为最优的"——在给定骨架下，\texttt{intlinprog} 输出的 exitflag 确认了全局最优。结合外层骨架全枚举，整个求解过程在两层均具备最优性保证。
+
+  \item \textbf{停泊决策的自动化}。$b_j$ 作为 0--1 变量被 MILP 自动优化，不被预设为"有作业就必须停泊"。例如在最优解中 $W_1$ 处 $b=0$（3 天作业后在 $4$ 天上限内，无需停泊），而 $W_3$ 处 $b=1$（需停泊才能突破 $3$ 天上限完成第二段作业）。MILP 自动做出了分化的选择。
+
+  \item \textbf{字典序优化的自然实现}。两阶段调用 \texttt{intlinprog} 精确实现了 $\max Z$ 优先、其次 $\max M$ 的字典序，不需要设计复合权重或罚函数。
+
+  \item \textbf{big-M 线性化的风险}。$w_{2j}\le b_j\cdot WM_j$ 的 big-M 线性化（$M=WM_j$）引入了"若 $b_j=0$ 则 $w_{2j}=0$"的析取约束。$WM_j$ 取值较小（$3\sim 5$），数值稳定性良好。若未来需要支持多段停泊（$b_j$ 扩展为一般整数），big-M 项会增多，需谨慎管理。
+\end{enumerate}
+
+\subsection{局限}
+
+\begin{itemize}
+  \item 依赖 Optimization Toolbox（\texttt{intlinprog}）。在无该工具箱的 MATLAB 环境中无法运行。
+  \item 变量数随停泊段数线性增长。v6 仅建模一段停泊（$b_j$ 为二元），若需 $k$ 段停泊则需 $k$ 个二元变量和 $(k+1)$ 个作业天数变量，约束矩阵规模相应增大。
+  \item 当前未支持作业点为 $W_2$（收益最低，$15$/天）的停泊策略——在最优骨架中 $W_2$ 确实从未被选入最优路径，实践中未造成损失。
+\end{itemize}
+
+\end{document}

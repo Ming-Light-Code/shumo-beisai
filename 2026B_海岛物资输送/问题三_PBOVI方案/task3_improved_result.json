@@ -1,0 +1,10 @@
+{
+  "problem": "Task 3 (Improved)",
+  "method": "Dynamic Re-planning + Risk-Aware DP",
+  "mc_expected_Z": 0.00,
+  "mc_expected_M": 0.00,
+  "best_Z": -1,
+  "best_M": -1,
+  "success_rate": 0.0000,
+  "elapsed_s": 0.56
+}

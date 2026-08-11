@@ -1,0 +1,256 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>海岛物资输送 - 交互决策</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:#0a1628;color:#b0c4de;height:100vh;overflow:hidden}
+.app{display:flex;height:100vh}.lpanel{flex:0 0 500px;display:flex;flex-direction:column;gap:8px;padding:10px;overflow-y:auto;border-right:1px solid #1e3a5f}
+.rpanel{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px}
+.card{background:#111d2e;border:1px solid #1e3a5f;border-radius:6px;padding:10px}
+.card h3{font-size:.78em;color:#4da6ff;margin-bottom:6px}
+.ylabels{display:flex;flex-direction:column;gap:2px;padding:6px 4px 6px 0}
+.ylabels span{height:38px;line-height:38px;font-size:.55em;color:#3a6a8a;text-align:right;width:14px}
+.map-inner{display:flex;flex-direction:column}.xlabels{display:flex;gap:2px;padding:0 6px;margin-bottom:2px}
+.xlabels span{width:38px;text-align:center;font-size:.55em;color:#3a6a8a}
+.grid-map{display:grid;grid-template-columns:repeat(10,38px);grid-template-rows:repeat(10,38px);gap:2px;background:#070f1a;padding:6px;border-radius:4px;border:1px solid #1a3050}
+.cell{width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:bold;border-radius:3px;transition:background .15s}
+.c-water{background:#0d1f33;color:#2a5070}.c-node{color:#fff;font-size:7px}
+.c-B{background:#1565c0}.c-E{background:#2e7d32}.c-S{background:#5d4037}.c-W{background:#4a148c}
+.c-ship{background:#ff9800;color:#000;font-size:9px;box-shadow:0 0 12px rgba(255,152,0,.8);z-index:10;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px rgba(255,152,0,.6)}50%{box-shadow:0 0 18px rgba(255,152,0,.95)}}
+.c-trace{background:#1b4f2e;opacity:.5}
+.res-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.ri{background:#070f1a;padding:6px;border-radius:4px;text-align:center;border:1px solid #1a3050}
+.ri .rl{font-size:.6em;color:#5a7a9a;margin-bottom:2px}.ri .rv{font-size:1em;font-weight:bold;color:#4da6ff}
+.ri.danger .rv{color:#f44336}.ri.load{grid-column:span 4;display:flex;justify-content:space-between;align-items:center;padding:4px 8px}
+.load-bar{flex:1;height:6px;background:#1a3050;border-radius:3px;margin:0 8px;overflow:hidden}
+.load-fill{height:100%;background:linear-gradient(90deg,#4caf50,#ff9800,#f44336);border-radius:3px;transition:width .3s}
+.load-pct{font-size:.7em;color:#78909c;min-width:42px;text-align:right}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#070f1a;border-radius:4px;font-size:.7em}
+.status-bar .label{color:#5a7a9a}.status-bar .val{color:#4da6ff;font-weight:bold}
+.weather-badge{padding:2px 8px;border-radius:3px;font-size:.75em;font-weight:bold}
+.w-normal{background:#2e7d32;color:#fff}.w-storm{background:#b71c1c;color:#fff}
+.btn-row{display:flex;gap:5px;flex-wrap:wrap}
+.btn{padding:6px 12px;border:none;border-radius:4px;cursor:pointer;font-size:.72em;font-weight:bold;transition:all .15s}
+.btn:hover{filter:brightness(1.2)}.bn{background:#2e7d32;color:#fff}.bs{background:#b71c1c;color:#fff}
+.ba{background:#e65100;color:#fff}.br{background:#37474f;color:#ccc}.bp{background:#1565c0;color:#fff}.by{background:#6a1b9a;color:#fff}
+.btn-sm{padding:4px 10px;font-size:.65em}.slider-row{display:flex;align-items:center;gap:8px;font-size:.7em;margin-top:4px}
+.slider-row input[type=range]{flex:1;accent-color:#4da6ff}
+.log-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.log{flex:1;overflow-y:auto;background:#070f1a;border-radius:4px;padding:6px;font-family:Consolas,monospace;font-size:.68em;line-height:1.6}
+.le{padding:2px 5px;border-bottom:1px solid #0d1f33}.le:hover{background:#111d2e}
+.ld{color:#4da6ff}.ln{color:#4caf50}.ls{color:#f44336}.ly{color:#ffc107}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.sg{background:#070f1a;padding:5px;border-radius:3px;text-align:center}
+.sg .sgl{font-size:.55em;color:#5a7a9a}.sg .sgv{font-size:.9em;color:#4da6ff;font-weight:bold}
+.sg.best .sgv{color:#4caf50}.sep{grid-column:span 2;height:1px;background:#1e3a5f;margin:2px 0}
+.tabs{display:flex;gap:0;margin-bottom:4px}
+.tab{padding:5px 12px;background:#111d2e;border:1px solid #1e3a5f;border-bottom:none;border-radius:4px 4px 0 0;cursor:pointer;font-size:.7em;color:#5a7a9a}
+.tab.active{background:#1a3050;color:#4da6ff}.tab-content{display:none}.tab-content.active{display:block}
+</style></head><body>
+<div class="app"><div class="lpanel">
+<div class="card"><h3>海域地图 10x10</h3><div style="display:flex"><div class="ylabels" id="ylabels"></div><div class="map-inner"><div class="xlabels"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div><div class="grid-map" id="gridMap"></div></div></div></div>
+<div class="card"><h3>资源状态</h3><div class="res-grid">
+<div class="ri" id="rO"><div class="rl">燃油 O</div><div class="rv">35</div></div>
+<div class="ri" id="rH"><div class="rl">淡水 H</div><div class="rv">45</div></div>
+<div class="ri" id="rF"><div class="rl">食物 F</div><div class="rv">30</div></div>
+<div class="ri" id="rM"><div class="rl">资金 M</div><div class="rv">240</div></div>
+<div class="ri" id="rZ"><div class="rl">目标物资 Z</div><div class="rv">100</div></div>
+<div class="ri" id="rC"><div class="rl">连续作业</div><div class="rv">0</div></div>
+<div class="ri load"><span class="rl" style="font-size:.6em">载重</span><div class="load-bar"><div class="load-fill" id="loadFill"></div></div><span class="load-pct" id="loadPct">110/120</span></div></div>
+<div class="status-bar" style="margin-top:4px"><span class="label">位置 <span id="sPos" class="val">(1,5)</span></span><span class="label">Day <span id="sDay" class="val">1/30</span></span><span id="sWx" class="weather-badge w-normal">--</span><span class="label">段 <span id="sSeg" class="val">B-W1</span></span></div></div>
+<div class="card"><h3>决策控制</h3><div class="tabs"><div class="tab active" onclick="switchTab('manual',this)">手动</div><div class="tab" onclick="switchTab('auto',this)">自动</div><div class="tab" onclick="switchTab('preset',this)">预设</div></div>
+<div id="tab-manual" class="tab-content active">
+<div class="btn-row" style="margin-bottom:4px"><button class="btn bn" onclick="step('normal')">正常</button><button class="btn bs" onclick="step('storm')">雷暴</button><button class="btn ba" onclick="autoStep()">一步</button><button class="btn br" onclick="resetAll()">重置</button></div>
+<div class="slider-row"><span style="color:#5a7a9a">P(正常)=</span><input type="range" min="0" max="100" value="80" id="pNormal" oninput="document.getElementById('pVal').textContent=(this.value/100).toFixed(2)"><span id="pVal" style="color:#4da6ff;font-weight:bold">0.80</span><button class="btn bp btn-sm" onclick="genWeather()">生成30天</button></div>
+<div id="wxPreview" style="font-size:.63em;color:#5a7a9a;margin-top:4px;word-break:break-all"></div></div>
+<div id="tab-auto" class="tab-content">
+<div class="btn-row"><button class="btn ba" id="autoBtn" onclick="toggleAuto()">自动</button><button class="btn br" onclick="resetAll()">重置</button></div>
+<div class="slider-row"><span style="color:#5a7a9a">速度</span><input type="range" min="100" max="2000" value="400" id="speed" oninput="document.getElementById('spdVal').textContent=(this.value/1000).toFixed(1)+'s'"><span id="spdVal" style="color:#4da6ff;font-weight:bold">0.4s</span></div>
+<div class="slider-row"><span style="color:#5a7a9a">P(正常)=</span><input type="range" min="0" max="100" value="80" id="pAuto" oninput="document.getElementById('pAutoVal').textContent=this.value+'%'"><span id="pAutoVal" style="color:#4da6ff;font-weight:bold">80%</span></div>
+<div class="btn-row" style="margin-top:4px"><button class="btn bn btn-sm" onclick="autoAllNormal()">全正常</button><button class="btn bs btn-sm" onclick="autoAllStorm()">全雷暴</button></div></div>
+<div id="tab-preset" class="tab-content">
+<div class="btn-row"><button class="btn bn" onclick="preset('allNormal')">全正常 30天</button><button class="btn bs" onclick="preset('allStorm')">全雷暴 30天</button></div>
+<div class="btn-row" style="margin-top:4px"><button class="btn by" onclick="preset('mixed80')">混合 P=0.8</button><button class="btn bp" onclick="preset('mixed50')">混合 P=0.5</button></div></div></div></div>
+<div class="rpanel">
+<div class="log-panel card"><h3>航行日志</h3><div class="log" id="log"></div></div>
+<div class="card"><h3>最优基准</h3><div class="summary-grid">
+<div class="sg best"><div class="sgl">全正常 Z</div><div class="sgv">328</div></div><div class="sg best"><div class="sgl">全雷暴 Z</div><div class="sgv">100</div></div>
+<div class="sg"><div class="sgl">全正常 M</div><div class="sgv">21</div></div><div class="sg"><div class="sgl">全雷暴 M</div><div class="sgv">116</div></div>
+<div class="sep"></div><div class="sg"><div class="sgl">策略</div><div class="sgv" style="font-size:.65em">骨架导向+贪心保守</div></div><div class="sg"><div class="sgl">天气</div><div class="sgv" style="font-size:.65em">仅观测当日</div></div></div></div>
+<div class="card"><h3>当前结果</h3><div class="summary-grid">
+<div class="sg"><div class="sgl">Z</div><div class="sgv" id="rz">--</div></div><div class="sg"><div class="sgl">M</div><div class="sgv" id="rm">--</div></div>
+<div class="sg"><div class="sgl">总天数</div><div class="sgv" id="rd">--</div></div><div class="sg"><div class="sgl">路径</div><div class="sgv" id="rp" style="font-size:.6em">--</div></div></div></div></div></div>
+<script>
+var ALL_XY=[[1,5],[10,5],[2,7],[5,3],[8,8],[3,4],[7,6]];
+var NAMES=['B','E','W1','W2','W3','S1','S2'];
+var LOAD=120,MAX_D=30;var WY=[20,15,28],WM=[4,5,3];var PRICES=[2,1,2];
+var CM_N=[2,3,2],CW_N=[5,4,3],CI_N=[1,1,1];
+var CM_T=[8,4,3],CW_T=[8,6,6],CI_T=[3,3,2];
+var SK_N={pid:[1,3,7,5,7,2],dist:[3,6,3,3,4],work_orig:[3,0,6,0,0]};
+var SK_T={pid:[1,6,2],dist:[3,8],work_orig:[]};
+var S,hist,skel,wr,autoTimer,autoWx,autoWxIdx,consRates;
+function nid(x,y){for(var i=0;i<7;i++)if(ALL_XY[i][0]===x&&ALL_XY[i][1]===y)return i;return-1}
+
+function dlog(m,c){var l=document.getElementById('log');l.innerHTML+='<div class="le'+(c?' '+c:'')+'">'+m+'</div>';l.scrollTop=l.scrollHeight}
+
+function calcNeed(sk,fs,rates){
+ var o=0,h=0,f=0;
+ for(var k=fs;k<sk.dist.length;k++){
+  o+=sk.dist[k]*rates[0];h+=sk.dist[k]*rates[1];f+=sk.dist[k]*rates[2];
+  if(k>=0&&k<wr.length&&wr[k]>0){
+   var wd=wr[k],wp=sk.pid[k+1]-2,wc=WM[wp],wr2=[5,4,3];
+   o+=wd*wr2[0];h+=wd*wr2[1];f+=wd*wr2[2];
+   if(wd>wc){var ni=Math.ceil(wd/wc)-1;o+=ni;h+=ni;f+=ni}
+  }
+  if(k+1<sk.pid.length&&(sk.pid[k+1]===6||sk.pid[k+1]===7))break;
+ }
+ return[o,h,f];
+}
+
+function decide(wx){
+ if(S.done||S.day>MAX_D)return null;
+ var sk=skel,n=nid(S.x,S.y);
+ var act='',cO=0,cH=0,cF=0,zG=0,bO=0,bH=0,bF=0,dx=0,dy=0;
+ if(n===1){S.done=true;return{act:'Arrive@E!',cO:0,cH:0,cF:0,zG:0,bO:0,bH:0,bF:0,dx:0,dy:0,noDay:true};}
+ if(S.seg<sk.pid.length-1&&n===sk.pid[S.seg+1]){
+  var to=sk.pid[S.seg+1];
+  if(to===6||to===7){
+   if(!S.bought){
+    var rates=consRates||(skel===SK_T?[8,4,3]:[2,3,2]);
+    var need=calcNeed(sk,S.seg+1,rates);
+    var sp=LOAD-(S.O+S.H+S.F);
+    var bO2=Math.max(0,Math.ceil(need[0]-S.O));
+    var bH2=Math.max(0,Math.ceil(need[1]-S.H));
+    var bF2=Math.max(0,Math.ceil(need[2]-S.F));
+    var tot=bO2+bH2+bF2,cost=bO2*2+bH2*1+bF2*2;
+    if(tot>sp){
+     if(wx==='normal'){cO=1;cH=1;cF=1}else{cO=3;cH=3;cF=2}
+     act='Idle@'+NAMES[to]+'(need '+Math.round(tot)+'>sp '+sp+')';
+    }else if(cost<=S.M&&tot>0){
+     bO=bO2;bH=bH2;bF=bF2;
+     act='Buy@'+NAMES[to]+' O:'+bO+' H:'+bH+' F:'+bF;
+     S.bought=true;S.seg++;S.step=0;S.consec=0;
+    }else if(tot===0){S.seg++;S.step=0;S.consec=0;S.bought=false;return decide(wx);}
+    else{act='NoMoney!';S.done=true;}
+   }else{S.seg++;S.step=0;S.consec=0;S.bought=false;return decide(wx);}
+  }else if(to>=3&&to<=5){
+   var wi=S.seg,wt=to-2;
+   if(wi>=0&&wi<wr.length&&wr[wi]>0){
+    if(wx==='normal'){
+     if(S.consec<WM[wt]){cO=5;cH=4;cF=3;zG=WY[wt];S.consec++;wr[wi]--;act='Work@'+NAMES[to]+'('+S.consec+'/'+WM[wt]+')';}
+     else{cO=1;cH=1;cF=1;S.consec=0;act='Idle@'+NAMES[to]+'(reset)';}
+    }else{cO=3;cH=3;cF=2;act='Idle@'+NAMES[to]+'(storm)';}
+    if(wr[wi]<=0){S.seg++;S.step=0;S.consec=0;S.bought=false;}
+   }else{S.seg++;S.step=0;S.consec=0;S.bought=false;return decide(wx);}
+  }
+ }else{
+  if(S.seg<sk.pid.length-1){
+   var tp=sk.pid[S.seg+1],tx=ALL_XY[tp][0],ty=ALL_XY[tp][1];
+   if(S.x<tx)dx=1;else if(S.x>tx)dx=-1;else if(S.y<ty)dy=1;else if(S.y>ty)dy=-1;
+   if(wx==='normal'){cO=2;cH=3;cF=2}else{cO=8;cH=4;cF=3}
+   S.step++;S.consec=0;act='Move('+(S.x+dx)+','+(S.y+dy)+')';}
+ }
+ if(!act)act='Wait';
+ return{act:act,cO:cO,cH:cH,cF:cF,zG:zG,bO:bO,bH:bH,bF:bF,dx:dx,dy:dy,noDay:false};
+}
+
+function step(wx){
+ if(S.done||S.day>MAX_D){if(S.day>MAX_D&&!S.done){S.done=true;dlog('超30天','ls')}return}
+ var d=decide(wx);if(!d)return;
+ S.x+=d.dx;S.y+=d.dy;S.O=S.O-d.cO+d.bO;S.H=S.H-d.cH+d.bH;S.F=S.F-d.cF+d.bF;
+ if(d.bO+d.bH+d.bF>0)S.M-=(d.bO*2+d.bH*1+d.bF*2);S.Z+=d.zG;
+ if(S.O<0||S.H<0||S.F<0||S.M<0||S.O+S.H+S.F>LOAD){dlog('约束违反! O='+S.O+' H='+S.H+' F='+S.F+' M='+S.M,'ls');S.done=true;updateUI();return}
+ var tag=wx==='storm'?'[Storm] ':'[OK] ';
+ dlog(tag+'D'+S.day+' '+d.act+' O:'+S.O+' H:'+S.H+' F:'+S.F+' M:'+S.M+' Z:'+S.Z);
+ hist.push({x:S.x,y:S.y,day:S.day,act:d.act,wx:wx});
+ if(!d.noDay)S.day++;updateUI();if(S.done)showResult();
+}
+
+function showResult(){
+ dlog('DONE! Z='+S.Z+' M='+Math.max(0,S.M),'ln');
+ document.getElementById('rz').textContent=S.Z;
+ document.getElementById('rm').textContent=Math.max(0,S.M);
+ document.getElementById('rd').textContent=S.day-1;
+ var pp='';for(var k=0;k<=S.seg&&k<skel.pid.length;k++)pp+=NAMES[skel.pid[k]]+'->';
+ document.getElementById('rp').textContent=pp+'E';
+}
+
+function autoStep(){
+ if(S.done||S.day>MAX_D)return;
+ var wx;if(autoWx.length>0&&autoWxIdx<autoWx.length){wx=autoWx[autoWxIdx];autoWxIdx++;}
+ else{wx=Math.random()<getPAuto()?'normal':'storm';}step(wx);
+}
+
+function toggleAuto(){
+ var btn=document.getElementById('autoBtn');
+ if(autoTimer){clearInterval(autoTimer);autoTimer=null;btn.textContent='自动';btn.className='btn ba';return}
+ if(S.done)resetAll();
+ autoTimer=setInterval(function(){autoStep();if(S.done){clearInterval(autoTimer);autoTimer=null;btn.textContent='自动';btn.className='btn ba'}},parseInt(document.getElementById('speed').value));
+ btn.textContent='暂停';btn.className='btn br';
+}
+
+function getPAuto(){var e=document.getElementById('pAuto');return e?parseFloat(e.value)/100:0.8}
+function autoAllNormal(){consRates=[2,3,2];autoWx=Array(30).fill('normal');autoWxIdx=0;skel=cloneSK(SK_N);wr=[...SK_N.work_orig];resetState();toggleAuto();}
+function autoAllStorm(){consRates=[8,4,3];autoWx=Array(30).fill('storm');autoWxIdx=0;skel=cloneSK(SK_T);wr=[];resetState();toggleAuto();}
+
+function preset(name){
+ resetAll();var wxSeq;
+ if(name==='allNormal'){consRates=[2,3,2];wxSeq=Array(30).fill('normal');skel=cloneSK(SK_N);wr=[...SK_N.work_orig];}
+ else if(name==='allStorm'){consRates=[8,4,3];wxSeq=Array(30).fill('storm');skel=cloneSK(SK_T);wr=[];}
+ else if(name==='mixed80'){consRates=[2,3,2];wxSeq=[];for(var i=0;i<30;i++)wxSeq.push(Math.random()<0.8?'normal':'storm');skel=cloneSK(SK_N);wr=[...SK_N.work_orig];}
+ else if(name==='mixed50'){consRates=[2,3,2];wxSeq=[];for(var i=0;i<30;i++)wxSeq.push(Math.random()<0.5?'normal':'storm');skel=cloneSK(SK_N);wr=[...SK_N.work_orig];}
+ autoWx=wxSeq;autoWxIdx=0;
+ document.getElementById('wxPreview').textContent=wxSeq.map(function(w){return w==='normal'?'Q':'B'}).join('');
+ for(var i=0;i<30;i++){if(S.done)break;step(wxSeq[i]);}
+}
+
+function cloneSK(sk){return JSON.parse(JSON.stringify(sk))}
+function resetState(){S={x:1,y:5,O:35,H:45,F:30,M:240,Z:100,consec:0,seg:0,step:0,bought:false,done:false,day:1};hist=[];autoTimer=null;autoWx=[];autoWxIdx=0;}
+function resetAll(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='自动';document.getElementById('autoBtn').className='btn ba';}consRates=null;resetState();skel=cloneSK(SK_N);wr=[...SK_N.work_orig];document.getElementById('log').innerHTML='';dlog('就绪','ld');document.getElementById('rz').textContent='--';document.getElementById('rm').textContent='--';document.getElementById('rd').textContent='--';document.getElementById('rp').textContent='--';updateUI();}
+
+function updateUI(){
+ document.getElementById('rO').querySelector('.rv').textContent=S.O;
+ document.getElementById('rH').querySelector('.rv').textContent=S.H;
+ document.getElementById('rF').querySelector('.rv').textContent=S.F;
+ document.getElementById('rM').querySelector('.rv').textContent=S.M;
+ document.getElementById('rZ').querySelector('.rv').textContent=S.Z;
+ document.getElementById('rC').querySelector('.rv').textContent=S.consec;
+ var load=S.O+S.H+S.F;
+ document.getElementById('loadFill').style.width=(load/LOAD*100).toFixed(1)+'%';
+ document.getElementById('loadPct').textContent=load+'/'+LOAD;
+ [document.getElementById('rO'),document.getElementById('rH'),document.getElementById('rF')].forEach(function(el,i){
+  el.classList.remove('danger');if([S.O,S.H,S.F][i]<=5)el.classList.add('danger');
+ });
+ document.getElementById('sPos').textContent='('+S.x+','+S.y+')';
+ document.getElementById('sDay').textContent=S.day+'/'+MAX_D;
+ var wb=document.getElementById('sWx'),lw=null;
+ if(hist.length>0)lw=hist[hist.length-1].wx;
+ if(autoWxIdx>0&&autoWx.length>0)lw=autoWx[Math.min(autoWxIdx-1,autoWx.length-1)];
+ if(lw){wb.textContent=lw==='normal'?'正常':'雷暴';wb.className='weather-badge '+(lw==='normal'?'w-normal':'w-storm');}
+ else{wb.textContent='--';wb.className='weather-badge w-normal';}
+ if(S.seg<skel.pid.length-1){document.getElementById('sSeg').textContent=NAMES[skel.pid[S.seg]]+'-'+NAMES[skel.pid[S.seg+1]];}
+ else{document.getElementById('sSeg').textContent='-E';}
+ drawMap();
+}
+
+function drawMap(){
+ var trace={};for(var h=0;h<hist.length;h++){trace[hist[h].x+','+hist[h].y]=true;}
+ var cells='';
+ for(var y=10;y>=1;y--){for(var x=1;x<=10;x++){
+  var cls='c-water',txt='',n=nid(x,y);
+  if(x===S.x&&y===S.y){cls='c-ship';txt='S';}
+  else if(n>=0){cls='c-node '+(n===1?'c-B':n===2?'c-E':(n===6||n===7)?'c-S':'c-W');txt=NAMES[n];}
+  else if(trace[x+','+y])cls='c-trace';
+  cells+='<div class="cell '+cls+'">'+txt+'</div>';}}
+ document.getElementById('gridMap').innerHTML=cells;
+}
+
+function switchTab(id,el){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active')});el.classList.add('active');document.getElementById('tab-'+id).classList.add('active');}
+
+function genWeather(){var p=parseFloat(document.getElementById('pNormal').value)/100;autoWx=Array(30).fill('normal');for(var i=0;i<30;i++)if(Math.random()>p)autoWx[i]='storm';autoWxIdx=0;document.getElementById('wxPreview').textContent=autoWx.map(function(w){return w==='normal'?'Q':'B'}).join('');dlog('天气生成 P='+p.toFixed(2),'ld');}
+
+function init(){
+ resetState();skel=cloneSK(SK_N);wr=[...SK_N.work_orig];consRates=null;
+ var yl='';for(var yi=10;yi>=1;yi--)yl+='<span>'+yi+'</span>';document.getElementById('ylabels').innerHTML=yl;
+ dlog('就绪','ld');drawMap();updateUI();
+}
+init();
+</script></body></html>

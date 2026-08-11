@@ -1,0 +1,36 @@
+﻿Phase 1: Skeleton enumeration...
+  Generated 379 skeletons
+  Unique: 379
+  With work: 376, Total: 377
+
+Phase 2: Monte Carlo evaluation...
+  Progress: 50/377 (0.6s)
+  Progress: 100/377 (1.0s)
+  Progress: 150/377 (1.4s)
+  Progress: 200/377 (1.9s)
+  Progress: 250/377 (2.2s)
+  Progress: 300/377 (2.4s)
+  Progress: 350/377 (2.6s)
+
+  Feasible: 164, Time: 2.7s
+
+Phase 3: Top results
+  #1: B -> S1 -> W1 -> S1 -> E
+       Z=252.0 M=370.7 succ=50/50 (100.0%) best_Z=280 best_M=492
+  #2: B -> S1 -> W2 -> S2 -> E
+       Z=225.5 M=422.0 succ=50/50 (100.0%) best_Z=275 best_M=599
+  #3: B -> S2 -> W3 -> S1 -> E
+       Z=221.5 M=149.2 succ=50/50 (100.0%) best_Z=284 best_M=254
+  #4: B -> S1 -> W2 -> S1 -> E
+       Z=220.0 M=330.3 succ=50/50 (100.0%) best_Z=275 best_M=477
+  #5: B -> S1 -> W1 -> S1 -> W1 -> S1 -> E
+       Z=216.0 M=33.4 succ=50/50 (100.0%) best_Z=360 best_M=127
+
+  Best: B -> S1 -> W1 -> S1 -> E
+  E[Z]=252.0 E[M]=370.7 succ=100.0%
+
+��������� 'N' �޷�ʶ��
+
+���� mdp_task3_final (�� 108 ��)
+        if islogical(e.weather)||isnumeric(e.weather), if e.weather,data{i+2,4}=N;else,data{i+2,4}=S;end,else,data{i+2,4}=e.weather;end; data{i+2,5}=e.action; data{i+2,6}=e.node;
+                                                                                ^

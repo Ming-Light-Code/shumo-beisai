@@ -1,0 +1,20 @@
+{
+  "problem": "Task 3 (PBOVI)",
+  "method": "Point-Based Online Value Iteration",
+  "reference": "Wu Bo PhD Thesis Ch2.1, Ch3.3",
+  "skeleton": [
+    "B",
+    "W1",
+    "S1",
+    "W2",
+    "S2",
+    "W3",
+    "E"
+  ],
+  "mc_expected_Z": 320.2440878378378,
+  "mc_expected_M": 104.41891891891892,
+  "best_episode_Z": 424,
+  "best_episode_M": 109,
+  "success_rate": 0.592,
+  "elapsed_s": 59.36055088043213
+}

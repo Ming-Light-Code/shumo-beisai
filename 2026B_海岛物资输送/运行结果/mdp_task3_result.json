@@ -1,0 +1,34 @@
+{
+  "problem": "Task 3 (MDP)",
+  "parameters": {
+    "grid": "30x30",
+    "B": "(1,15)",
+    "E": "(30,15)",
+    "S1": "(12,16)",
+    "S2": "(21,16)",
+    "W1": "(6,21) gain=20 max=4",
+    "W2": "(15,9) gain=15 max=5",
+    "W3": "(24,24) gain=28 max=3",
+    "P_normal": 0.8,
+    "P_storm": 0.2,
+    "max_days": 90,
+    "max_load": 400,
+    "init_O": 100,
+    "init_H": 150,
+    "init_F": 100,
+    "init_M": 750,
+    "init_Z": 200
+  },
+  "best_skeleton": [
+    "B",
+    "S1",
+    "W1",
+    "S1",
+    "E"
+  ],
+  "expected_Z": 280.0,
+  "expected_M": 410.68122270742356,
+  "success_rate": 0.916,
+  "best_episode_Z": 280,
+  "best_episode_M": 492
+}

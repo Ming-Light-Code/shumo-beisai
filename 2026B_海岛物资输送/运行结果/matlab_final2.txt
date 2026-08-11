@@ -1,0 +1,34 @@
+﻿Phase 1: Skeleton enumeration...
+  Generated 379 skeletons
+  Unique: 379
+  With work: 376, Total: 377
+
+Phase 2: Monte Carlo evaluation...
+  Progress: 50/377 (1.2s)
+  Progress: 100/377 (2.1s)
+  Progress: 150/377 (3.2s)
+  Progress: 200/377 (4.3s)
+  Progress: 250/377 (5.0s)
+  Progress: 300/377 (5.5s)
+  Progress: 350/377 (5.9s)
+
+  Feasible: 164, Time: 6.2s
+
+Phase 3: Top results
+  #1: B -> S1 -> W1 -> S1 -> E
+       Z=260.4 M=380.0 succ=100/100 (100.0%) best_Z=280 best_M=507
+  #2: B -> S1 -> W2 -> S1 -> E
+       Z=242.0 M=368.7 succ=100/100 (100.0%) best_Z=275 best_M=507
+  #3: B -> S1 -> W2 -> S2 -> E
+       Z=239.2 M=447.8 succ=100/100 (100.0%) best_Z=275 best_M=601
+  #4: B -> S2 -> W3 -> S1 -> E
+       Z=224.4 M=146.1 succ=100/100 (100.0%) best_Z=284 best_M=282
+  #5: B -> S1 -> W3 -> E
+       Z=204.5 M=369.3 succ=100/100 (100.0%) best_Z=284 best_M=545
+
+  Best: B -> S1 -> W1 -> S1 -> E
+  E[Z]=260.4 E[M]=380.0 succ=100.0%
+
+  Schedule saved to result.xlsx
+
+Done!

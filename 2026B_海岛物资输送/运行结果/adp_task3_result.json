@@ -1,0 +1,15 @@
+{
+  "problem": "Task 3 (ADP)",
+  "method": "API_2iter",
+  "skeleton": [
+    "B",
+    "E"
+  ],
+  "avg_Z": 200.0,
+  "avg_M": 750.0,
+  "sample_Z": 200,
+  "sample_M": 750,
+  "mc_Z": 200.0,
+  "mc_M": 750.0,
+  "elapsed_s": 80.34910655021667
+}

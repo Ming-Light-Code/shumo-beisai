@@ -1,0 +1,23 @@
+{
+  "version": "v2_optimized",
+  "best_skeleton": [
+    "B",
+    "W1",
+    "S1",
+    "W3",
+    "S2",
+    "W3",
+    "E"
+  ],
+  "expected_Z": 398.7,
+  "expected_M": 216.0,
+  "success_rate": 1.0,
+  "best_episode_Z": 448,
+  "best_episode_M": 261,
+  "improvements": [
+    "adaptive_buy",
+    "storm_work_urgency",
+    "stay_at_work_point",
+    "no_rollout_refine"
+  ]
+}
