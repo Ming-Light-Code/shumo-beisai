@@ -1,0 +1,129 @@
+ \documentclass[12pt,a4paper]{ctexart}
+ 
+ \usepackage{amsmath,amssymb}
+ \usepackage{booktabs}
+ \usepackage{geometry}
+ \geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+ 
+ \begin{document}
+ 
+ \section{问题一：多波束测深覆盖宽度与重叠率模型}
+ 
+ \subsection{问题重述}
+ 
+ 多波束测深系统在与航迹垂直的平面内一次发射多个波束。当海底存在坡度时，条带的覆盖宽度和相邻条带间的重叠率会随水深变化。本题中，与测线垂直的平面和海底坡面的交线与水平面夹角为坡度~$\alpha$。已知：
+ \begin{itemize}
+     \item 多波束换能器开角 $\theta = 120^\circ$；
+     \item 海底坡度 $\alpha = 1.5^\circ$；
+     \item 海域中心点处海水深度 $D_0 = 70$~m；
+     \item 测线间距 $d = 200$~m。
+ \end{itemize}
+ 要求建立覆盖宽度及相邻条带之间重叠率的数学模型，并计算表~1 所列位置的指标值。
+ 
+ \subsection{模型假设}
+ \begin{enumerate}
+     \item 海水介质均匀，声波沿直线传播；
+     \item 海底坡面为平面，坡度沿测线方向恒定；
+     \item 换能器开角对称，波束左右对称发射。
+ \end{enumerate}
+ 
+ \subsection{覆盖宽度模型}
+ 
+ \subsubsection{海水深度}
+ 
+ 以海域中心点为坐标原点，水平距离 $x$ 向东为正。海底沿 $x$ 方向以坡度 $\alpha$ 均匀倾斜，深度随水平距离线性变化：
+ \begin{equation}\label{eq:depth}
+     D(x) = D_0 + x \tan\alpha.
+ \end{equation}
+ 
+ \subsubsection{左右半宽度}
+ 
+ 换能器位于海面 $(0,0)$ 处，发射的左右边界波束与铅垂线夹角均为 $\theta/2$。
+ 
+ \textbf{左侧（上坡）波束}：射线方程为 $x = -z\tan(\theta/2)$，与海底面 $z = D_0 + x\tan\alpha$ 联立：
+ \[
+     x_L = -\frac{D_0\tan\frac{\theta}{2}}{1 + \tan\alpha\tan\frac{\theta}{2}}.
+ \]
+ 左侧半宽度为：
+ \begin{equation}\label{eq:WL}
+     W_L(x) = \frac{D(x)\tan\frac{\theta}{2}}{1 + \tan\alpha\tan\frac{\theta}{2}}.
+ \end{equation}
+ 
+ \textbf{右侧（下坡）波束}：射线方程为 $x = z\tan(\theta/2)$，同理得：
+ \[
+     x_R = \frac{D_0\tan\frac{\theta}{2}}{1 - \tan\alpha\tan\frac{\theta}{2}}.
+ \]
+ 右侧半宽度为：
+ \begin{equation}\label{eq:WR}
+     W_R(x) = \frac{D(x)\tan\frac{\theta}{2}}{1 - \tan\alpha\tan\frac{\theta}{2}}.
+ \end{equation}
+ 
+ 由于分母 $1 - \tan\alpha\tan(\theta/2) < 1 + \tan\alpha\tan(\theta/2)$，故 $W_R > W_L$，即下坡侧覆盖范围更宽。
+ 
+ \subsubsection{总覆盖宽度}
+ 
+ \begin{equation}\label{eq:W}
+     W(x) = W_L(x) + W_R(x)
+          = 2D(x)\tan\frac{\theta}{2}
+            \frac{1}{1 - \tan^2\alpha\tan^2\frac{\theta}{2}}.
+ \end{equation}
+ 
+ \subsection{重叠率模型}
+ 
+ 相邻条带之间的重叠率定义为条带覆盖宽度的重叠部分占总覆盖宽度的比例。对于水平海底，若测线间距为 $d$，覆盖宽度为 $W$，则重叠长度为 $W-d$，重叠率为：
+ \begin{equation}\label{eq:eta_def}
+     \eta = \frac{W-d}{W} = 1 - \frac{d}{W}.
+ \end{equation}
+ 
+ 当海底存在坡度时，覆盖宽度 $W$ 随位置变化，但定义形式不变。对于第 $i$ 条测线（位置 $x_i$），与前一条测线（位置 $x_{i-1} = x_i - d$）的重叠率为：
+ \begin{equation}\label{eq:eta_slope}
+     \eta(x_i) = 1 - \frac{d}{W(x_i)}.
+ \end{equation}
+ 
+ 该式中 $W(x_i)$ 为当前测线处的覆盖宽度。$\eta > 0$ 表示存在重叠，$\eta < 0$ 表示存在漏测。
+ 
+ \subsection{数值计算}
+ 
+ 代入 $\theta/2 = 60^\circ$，$\tan 60^\circ = \sqrt{3} \approx 1.732051$，$\tan 1.5^\circ \approx 0.026186$：
+ \[
+     \begin{aligned}
+     W_L(x) &= \frac{D(x) \times 1.732051}{1 + 0.045355} \approx 1.656886 \cdot D(x), \\[2mm]
+     W_R(x) &= \frac{D(x) \times 1.732051}{1 - 0.045355} \approx 1.814356 \cdot D(x), \\[2mm]
+     W(x)  &= 3.471242 \cdot D(x).
+     \end{aligned}
+ \]
+ 
+ 计算结果见表~\ref{tab:result1}。
+ 
+ \begin{table}[htbp]
+ \centering
+ \caption{问题 1 的计算结果}
+ \label{tab:result1}
+ \begin{tabular}{lccccccccc}
+ \toprule
+ 测线距中心点处的距离/m & $-800$ & $-600$ & $-400$ & $-200$ & $0$ & $200$ & $400$ & $600$ & $800$ \\
+ \midrule
+ 海水深度/m    & 49.051 & 54.288 & 59.526 & 64.763 & 70.000 & 75.237 & 80.474 & 85.712 & 90.949 \\
+ 左半宽度/m    & 81.273 & 89.951 & 98.628 & 107.306 & 115.983 & 124.661 & 133.338 & 142.016 & 150.693 \\
+ 右半宽度/m    & 88.996 & 98.498 & 108.000 & 117.502 & 127.004 & 136.506 & 146.008 & 155.510 & 165.012 \\
+ 覆盖宽度/m    & 170.269 & 188.448 & 206.628 & 224.807 & 242.987 & 261.166 & 279.346 & 297.526 & 315.705 \\
+ 与前一条测线的重叠率/\% &  —— & $-6.130$ & $3.208$ & $11.035$ & $17.691$ & $23.420$ & $28.404$ & $32.779$ & $36.650$ \\
+ \bottomrule
+ \end{tabular}
+ \end{table}
+ 
+ \subsection{结果分析}
+ 
+ \begin{enumerate}
+     \item \textbf{左右不对称}：左侧（上坡）半宽度小于右侧（下坡）半宽度。例如中心点处左半宽度 $115.983$~m、右半宽度 $127.004$~m，差约 $11.021$~m。这一不对称性随水深增大而加剧。
+     \item \textbf{覆盖宽度规律}：覆盖宽度与水深成正比。西侧浅水区（$-800$~m）覆盖宽度 $170.269$~m，东侧深水区（$800$~m）覆盖宽度 $315.705$~m。在固定 $200$~m 间距下，覆盖宽度越大的区域重叠率越高。
+     \item \textbf{覆盖与漏测}：
+         \begin{itemize}
+             \item $-600$~m 处重叠率为 $-6.130\%$，存在漏测（条带间有间隙）；
+             \item $-400$~m 处重叠率 $3.208\%$，开始有微弱重叠；
+             \item $-200$~m 和 $0$~m 处重叠率分别为 $11.035\%$ 和 $17.691\%$，落入 $10\%\sim20\%$ 的合理区间；
+             \item $+200$~m 以东重叠率超过 $20\%$，深水区数据冗余逐渐增大。
+         \end{itemize}
+ \end{enumerate}
+ 
+ \end{document}
