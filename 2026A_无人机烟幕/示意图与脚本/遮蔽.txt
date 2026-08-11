@@ -1,0 +1,68 @@
+\subsection{基于单位球面投影法的有效遮蔽判别模型}
+\label{subsec:occlusion_model}
+
+直接判定三维空间中烟幕球体与真目标圆柱体的遮挡关系，涉及球体与凸柱面的复杂求交运算，实时性差且难以解析处理。为此，本文引入\textbf{单位球面投影法}：以导弹位置 $\mathbf{r}_{M_i}(t)$ 为球心构造单位球面 $\mathbb{S}^2$，将空间几何遮挡问题转化为球面上的区域覆盖问题。
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\textwidth]{有效遮蔽示意.pdf}
+    \caption{有效遮蔽示意}
+    \label{fig:example}
+\end{figure}
+
+\subsubsection{投影框架与烟幕球冠}
+
+对空间中任意点 $\mathbf{Q}$，定义其相对于导弹位置的单位投影方向为
+\begin{equation}
+    \hat{\mathbf{q}}=\frac{\mathbf{Q}-\mathbf{r}_{M_i}(t)}{\|\mathbf{Q}-\mathbf{r}_{M_i}(t)\|}.
+    \label{eq:projection}
+\end{equation}
+
+设烟幕云团中心位置为 $\mathbf{r}_c(t)$，其在单位球面上的投影方向（即烟幕中心方向）为
+\begin{equation}
+    \hat{\mathbf{c}}=\frac{\mathbf{r}_c(t)-\mathbf{r}_{M_i}(t)}{\|\mathbf{r}_c(t)-\mathbf{r}_{M_i}(t)\|}.
+    \label{eq:center_dir}
+\end{equation}
+
+半径为 $R_{\mathrm{s}}$ 的烟幕球体投影至单位球面上形成一个球冠区域 $\mathcal{S}$，其角半径 $\theta_{\mathrm{s}}$ 满足
+\begin{equation}
+    \sin\theta_{\mathrm{s}}=\frac{R_{\mathrm{s}}}{\|\mathbf{r}_c(t)-\mathbf{r}_{M_i}(t)\|},
+    \quad\text{即}\quad
+    \theta_{\mathrm{s}}=\arcsin\!\left(\frac{R_{\mathrm{s}}}{\|\mathbf{r}_c(t)-\mathbf{r}_{M_i}(t)\|}\right).
+    \label{eq:angular_radius}
+\end{equation}
+如图\ref{fig:projection}所示，球冠 $\mathcal{S}$ 由中心方向 $\hat{\mathbf{c}}$ 与角半径 $\theta_{\mathrm{s}}$ 唯一确定。
+
+\subsubsection{真目标投影区域与判定准则}
+
+真目标为圆柱体，其表面离散采样点 $\{\mathbf{p}_k\}$ 经式\eqref{eq:projection}投影至单位球面，形成区域 $\mathcal{T}$。根据\textbf{凸集分离定理}，区域包含关系 $\mathcal{T}\subseteq\mathcal{S}$ 的充要条件是真目标边界上的全部投影点均落入烟幕球冠内，即
+\begin{equation}
+    \mathcal{T}\subseteq\mathcal{S}
+    \iff
+    \forall\,\hat{\mathbf{v}}_k\in\partial\mathcal{T},\quad
+    \arccos(\hat{\mathbf{v}}_k\cdot\hat{\mathbf{c}})\le\theta_{\mathrm{s}},
+    \label{eq:occlusion_condition}
+\end{equation}
+其中 $\hat{\mathbf{v}}_k$ 为真目标边界采样点在单位球面上的投影方向，$\partial\mathcal{T}$ 表示目标投影区域的边界。若式\eqref{eq:occlusion_condition}成立，则判定该时刻烟幕对真目标形成\textbf{完全遮蔽}，$\mathrm{Bool}(t)=1$；否则 $\mathrm{Bool}(t)=0$。
+
+\subsubsection{数值实现：边界采样策略}
+
+为在数值上验证式\eqref{eq:occlusion_condition}，仅需对真目标边界 $\partial\mathcal{T}$ 进行离散采样，无需处理其内部。具体地，在真目标圆柱的上下圆面边界及侧面轮廓线布置采样点 $\{\mathbf{p}_k\}_{k=1}^{N}$（总量 $N=640$），计算各点投影方向 $\hat{\mathbf{v}}_k$ 后与烟幕中心方向 $\hat{\mathbf{c}}$ 的角距离 $\Delta\theta_k=\arccos(\hat{\mathbf{v}}_k\cdot\hat{\mathbf{c}})$。若
+\begin{equation}
+    \max_{1\le k\le N}\Delta\theta_k\le\theta_{\mathrm{s}},
+    \label{eq:discrete_check}
+\end{equation}
+则该时刻判定为遮蔽。
+
+\subsubsection{特殊情形：导弹位于烟幕内部}
+
+当导弹与烟幕中心距离满足
+\begin{equation}
+    \|\mathbf{r}_c(t)-\mathbf{r}_{M_i}(t)\|\le R_{\mathrm{s}}
+    \label{eq:missile_inside}
+\end{equation}
+时，导弹处于烟幕球体内部。此时无论其朝向如何，视线必穿过烟幕区域后穿出球体，恒满足有效遮蔽条件，无需执行采样判别，直接令 $\mathrm{Bool}(t)=1$。
+
+\subsubsection{一维展开视角}
+
+为进一步直观验证覆盖关系，可将球冠 $\mathcal{S}$ 与目标投影区域 $\mathcal{T}$ 沿方位角展开。以方位角 $\varphi$ 为横轴、俯仰角 $\psi$ 为纵轴作二维展开图，其中烟幕投影表现为以 $(\varphi_c,\psi_c)$ 为中心、宽度 $2\theta_{\mathrm{s}}$ 的带状区域；真目标投影则表现为闭合曲线。通过观察二者是否完全包含，可快速检验式\eqref{eq:occlusion_condition}的成立与否。
